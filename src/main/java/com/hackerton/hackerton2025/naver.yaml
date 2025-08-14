@@ -1,0 +1,9 @@
+
+#Naver API
+
+naver.client-id = XMREkZ9YXQXOkfkuxDyc
+naver.secret = fhQIRw16wG
+
+naver:
+  client-id: XMREkZ9YXQXOkfkuxDyc
+    secret:  fhQIRw16wG
