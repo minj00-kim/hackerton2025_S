@@ -53,6 +53,9 @@ public class ServerController {
         if (NAVER_API_ID.isBlank() || NAVER_API_SECRET.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "naver api key is not configured");
         }
+        if (query == null || query.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "query is required");
+        }
 
         try {
             // 한글/공백 안전하게 인코딩
@@ -69,8 +72,9 @@ public class ServerController {
 
             RestTemplate restTemplate = new RestTemplate();
             RequestEntity<Void> req = RequestEntity.get(uri)
-                    .header("X-Naver-Client-Id", NAVER_API_ID)
-                    .header("X-Naver-Client-Secret", NAVER_API_SECRET)
+                    .header("X-Naver-Client-Id", NAVER_API_ID.trim())
+                    .header("X-Naver-Client-Secret", NAVER_API_SECRET.trim())
+                    .header("Accept", "application/json")
                     .build();
 
             ResponseEntity<String> res = restTemplate.exchange(req, String.class);
@@ -95,13 +99,23 @@ public class ServerController {
 
             List<Map<String, String>> out = new ArrayList<>();
             for (JsonNode n : items) {
+                // 네이버 Local 검색 mapx/mapy 는 경도/위도 * 1e7
+                String x = n.path("mapx").asText();
+                String y = n.path("mapy").asText();
+                double lng = n.path("mapx").asDouble() / 1e7; // 경도
+                double lat = n.path("mapy").asDouble() / 1e7; // 위도
+
                 Map<String, String> m = new HashMap<>();
                 m.put("title", stripTags(n.path("title").asText()));   // <b> 태그 제거
                 m.put("address", n.path("address").asText());
                 m.put("roadAddress", n.path("roadAddress").asText(""));
-                // 주의: mapx/mapy는 TM128 좌표 (위도/경도 아님)
-                m.put("x", n.path("mapx").asText());
-                m.put("y", n.path("mapy").asText());
+                // 원본 값도 유지
+                m.put("x", x);
+                m.put("y", y);
+                // 위경도 변환값 추가
+                m.put("lng", Double.toString(lng));
+                m.put("lat", Double.toString(lat));
+
                 out.add(m);
             }
             return out;
