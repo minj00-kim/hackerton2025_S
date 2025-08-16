@@ -1,23 +1,36 @@
 package com.hackerton.hackerton2025.Entity;
 
-import lombok.ToString;
 
+import jakarta.persistence.*;
+import lombok.*;
 
-@ToString
+@Entity
+@Table(name = "posts")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+
 
 public class Post {
 
-    String location;
-    String description;
-    String detail;
-    long price;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
 
-    String image1;
-    String image2;
-    String image3;
+    private String title;
+    private String description;
+    private String address;
+    private Double latitude;
+    private Double longitude;
+    private String category;
 
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User owner;
 
 
 
