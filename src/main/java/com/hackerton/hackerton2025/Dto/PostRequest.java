@@ -9,18 +9,21 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-
 public class PostRequest {
 
-
-
     @NotNull(message = "유저 ID는 필수입니다.")
-    private Long user;
+    private Long userId;
 
-    @NotBlank(message = "위치는 필수입니다.")
-    private String location;
+    @NotBlank(message = "제목은 필수입니다.")
+    private String title;
 
-    @NotBlank(message = "가격은 필수입니다.")
-    private String price;
+    private String description;
 
+    @NotBlank(message = "주소는 필수입니다.")
+    private String address;
+
+    private Double latitude;
+    private Double longitude;
+
+    private String category;
 }
