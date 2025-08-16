@@ -19,7 +19,10 @@ public class User {
     String password;
     Boolean state;
 
-
+    public enum Role {
+        USER,//사용자
+        ADMIN//중개자 혹은
+    }
 
 
 }
