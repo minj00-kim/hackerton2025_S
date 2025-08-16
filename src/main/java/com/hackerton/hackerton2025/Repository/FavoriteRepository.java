@@ -11,4 +11,7 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
     Optional<Favorite> findByUserIdAndListing_Id(Long userId, Long listingId);
     List<Favorite> findByUserIdOrderByCreatedAtDesc(Long userId);
     long countByListing_Id(Long listingId);
+
+    // ✅ 추가: 여러 listingId를 한 번에 체크 (목록 화면 하트 상태용)
+    List<Favorite> findByUserIdAndListing_IdIn(Long userId, List<Long> listingIds);
 }
