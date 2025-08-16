@@ -5,21 +5,14 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-
-
 public class PostResponse {
 
-    private Long user;
-    private String location;
-    private String price;
-
-
-    public PostResponse(Long user, String location) {
-        this.user = user;
-        this.location = location;
-        this.price = "$";
-
-    }
-
-
+    private Long id;
+    private String title;
+    private String description;
+    private String address;
+    private Double latitude;
+    private Double longitude;
+    private String category;
+    private Long ownerId;
 }
