@@ -20,4 +20,6 @@ public class MapController {
         // 일단 컴파일/동작 확인용 응답
         return Map.of("ok", true, "query", query);
     }
+
+
 }

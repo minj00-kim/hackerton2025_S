@@ -6,7 +6,6 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class PostResponse {
-
     private Long id;
     private String title;
     private String description;
@@ -15,4 +14,6 @@ public class PostResponse {
     private Double longitude;
     private String category;
     private Long ownerId;
+
+
 }
