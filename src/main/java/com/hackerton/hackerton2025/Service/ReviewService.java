@@ -5,14 +5,16 @@ import com.hackerton.hackerton2025.Dto.RatingSummaryResponse;
 import com.hackerton.hackerton2025.Dto.ReviewItemResponse;
 import com.hackerton.hackerton2025.Dto.ReviewRequest;
 import com.hackerton.hackerton2025.Dto.ReviewResponse;
-import com.hackerton.hackerton2025.Entity.Listing;
+import com.hackerton.hackerton2025.Entity.Post;          // ✅ 변경
 import com.hackerton.hackerton2025.Entity.Review;
-import com.hackerton.hackerton2025.Repository.ListingRepository;
+import com.hackerton.hackerton2025.Repository.PostRepository;   // ✅ 변경
 import com.hackerton.hackerton2025.Repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -23,19 +25,20 @@ import java.util.List;
 public class ReviewService {
 
     private final ReviewRepository reviewRepo;
-    private final ListingRepository listingRepo;
+    private final PostRepository postRepo;                 // ✅ 변경
 
-    // 작성
-    public Long write(Long listingId, Long userId, ReviewRequest req) {
-        Listing listing = listingRepo.findById(listingId).orElseThrow();
+    /** 작성 */
+    public Long write(Long postId, Long userId, ReviewRequest req) {
+        Post post = postRepo.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 매물입니다."));
 
-        // 게시물당 1개 제한 (이미 구현해둔 경우 생략 가능)
-        if (reviewRepo.existsByListing_IdAndUserId(listingId, userId)) {
-            throw new IllegalStateException("이미 이 게시물에 리뷰를 작성했습니다.");
+        // 게시물당 1개 제한
+        if (reviewRepo.existsByPost_IdAndUserId(postId, userId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 이 게시물에 리뷰를 작성했습니다.");
         }
 
         Review r = Review.builder()
-                .listing(listing)
+                .post(post)             // ✅ 변경
                 .userId(userId)
                 .rating(req.rating())
                 .comment(req.comment())
@@ -44,27 +47,27 @@ public class ReviewService {
         return reviewRepo.save(r).getId();
     }
 
-    // 수정
-    public Long update(Long listingId, Long reviewId, Long userId, ReviewRequest req) {
-        Review r = reviewRepo.findByIdAndListing_IdAndUserId(reviewId, listingId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("리뷰가 없거나 권한이 없습니다"));
+    /** 수정 */
+    public Long update(Long postId, Long reviewId, Long userId, ReviewRequest req) {
+        Review r = reviewRepo.findByIdAndPost_IdAndUserId(reviewId, postId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 리뷰만 수정할 수 있습니다."));
         r.setRating(req.rating());
         r.setComment(req.comment());
         return r.getId();
     }
 
-    // 삭제
-    public void delete(Long listingId, Long reviewId, Long userId) {
-        Review r = reviewRepo.findByIdAndListing_IdAndUserId(reviewId, listingId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("리뷰가 없거나 권한이 없습니다"));
+    /** 삭제 */
+    public void delete(Long postId, Long reviewId, Long userId) {
+        Review r = reviewRepo.findByIdAndPost_IdAndUserId(reviewId, postId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 리뷰만 삭제할 수 있습니다."));
         reviewRepo.delete(r);
     }
 
-    // 기존 목록(전체)
+    /** 목록(전체) */
     @Transactional(readOnly = true)
-    public List<ReviewResponse> list(Long listingId) {
+    public List<ReviewResponse> list(Long postId) {
         DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-        return reviewRepo.findByListing_IdOrderByCreatedAtDesc(listingId)
+        return reviewRepo.findByPost_IdOrderByCreatedAtDesc(postId)
                 .stream()
                 .map(r -> new ReviewResponse(
                         r.getId(),
@@ -76,17 +79,17 @@ public class ReviewService {
                 .toList();
     }
 
-    // ✅ 페이지네이션 + mine 플래그
+    /** 페이지네이션 + 내가 쓴 리뷰 여부 */
     @Transactional(readOnly = true)
-    public Page<ReviewItemResponse> listPaged(Long listingId, Long currentUserId,
+    public Page<ReviewItemResponse> listPaged(Long postId, Long currentUserId,
                                               int page, int size, String sort) {
         String order = (sort == null || sort.isBlank()) ? "createdAt,desc" : sort;
         String[] s = order.split(",", 2);
-        Sort.Direction dir = s.length > 1 ? Sort.Direction.fromString(s[1]) : Sort.Direction.DESC;
+        Sort.Direction dir = (s.length > 1) ? Sort.Direction.fromString(s[1]) : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(dir, s[0]));
 
         DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-        return reviewRepo.findByListing_Id(listingId, pageable)
+        return reviewRepo.findByPost_Id(postId, pageable)
                 .map(r -> new ReviewItemResponse(
                         r.getId(),
                         r.getRating(),
@@ -96,12 +99,12 @@ public class ReviewService {
                 ));
     }
 
-    // ✅ 평점 요약(평균/개수)
+    /** 평점 요약(평균/개수) */
     @Transactional(readOnly = true)
-    public RatingSummaryResponse ratingSummary(Long listingId) {
-        Double avg = reviewRepo.avgRating(listingId);          // null일 수 있음
-        long cnt = reviewRepo.countByListing_Id(listingId);
-        double rounded = (avg == null ? 0.0 : Math.round(avg * 10.0) / 10.0); // 소수 1자리
+    public RatingSummaryResponse ratingSummary(Long postId) {
+        Double avg = reviewRepo.avgRating(postId);             // null 가능
+        long cnt = reviewRepo.countByPost_Id(postId);          // ✅ 변경
+        double rounded = (avg == null ? 0.0 : Math.round(avg * 10.0) / 10.0);
         return new RatingSummaryResponse(rounded, cnt);
     }
 }

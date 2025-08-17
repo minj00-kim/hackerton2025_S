@@ -7,23 +7,28 @@ import java.time.LocalDateTime;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"user_id","listing_id"}))
+@Table(
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "post_id"}),
+        indexes = {
+                @Index(name = "idx_fav_post", columnList = "post_id"),
+                @Index(name = "idx_fav_user", columnList = "user_id"),
+                @Index(name = "idx_fav_created", columnList = "created_at")
+        }
+)
 public class Favorite {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name="user_id", nullable=false)
     private Long userId; // anon_id
 
     @ManyToOne(fetch = FetchType.LAZY, optional=false)
-    @JoinColumn(name="listing_id", nullable=false)
-    private Listing listing;
+    @JoinColumn(name="post_id", nullable=false)   // ✅ Listing → Post
+    private Post post;
 
     @Column(name="created_at", nullable=false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
     @PrePersist
     void prePersist() {

@@ -7,11 +7,17 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
-    boolean existsByUserIdAndListing_Id(Long userId, Long listingId);
-    Optional<Favorite> findByUserIdAndListing_Id(Long userId, Long listingId);
-    List<Favorite> findByUserIdOrderByCreatedAtDesc(Long userId);
-    long countByListing_Id(Long listingId);
 
-    // ✅ 추가: 여러 listingId를 한 번에 체크 (목록 화면 하트 상태용)
-    List<Favorite> findByUserIdAndListing_IdIn(Long userId, List<Long> listingIds);
+    // 단건 존재/조회 (userId + postId)
+    boolean existsByUserIdAndPost_Id(Long userId, Long postId);
+    Optional<Favorite> findByUserIdAndPost_Id(Long userId, Long postId);
+
+    // 내 찜 목록(최신순)
+    List<Favorite> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    // 특정 게시글의 찜 개수
+    long countByPost_Id(Long postId);
+
+    // 여러 postId에 대한 내 찜 여부 일괄 조회
+    List<Favorite> findByUserIdAndPost_IdIn(Long userId, List<Long> postIds);
 }

@@ -1,4 +1,4 @@
-// src/main/java/com/hackerton/hackerton2025/Controller/FavoriteController.java
+
 package com.hackerton.hackerton2025.Controller;
 
 import com.hackerton.hackerton2025.Security.GuestCookieFilter;
@@ -19,41 +19,43 @@ public class FavoriteController {
 
     private final FavoriteService svc;
 
-    @PostMapping("/{listingId}")
+    // ✅ 찜 추가 (postId 기준)
+    @PostMapping("/{postId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void add(@PathVariable Long listingId, HttpServletRequest req){
+    public void add(@PathVariable Long postId, HttpServletRequest req){
         Long uid = (Long) req.getAttribute(GuestCookieFilter.ATTR);
         if (uid == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키 없음");
-        svc.add(uid, listingId);
+        svc.add(uid, postId);
     }
 
-    @DeleteMapping("/{listingId}")
+    // ✅ 찜 제거
+    @DeleteMapping("/{postId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void remove(@PathVariable Long listingId, HttpServletRequest req){
+    public void remove(@PathVariable Long postId, HttpServletRequest req){
         Long uid = (Long) req.getAttribute(GuestCookieFilter.ATTR);
         if (uid == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키 없음");
-        svc.remove(uid, listingId);
+        svc.remove(uid, postId);
     }
 
-    // 내 찜 목록 (listingId 배열만 반환)
+    // ✅ 내 찜 목록 (postId 배열만 반환, 최신순)
     @GetMapping
     public List<Long> my(HttpServletRequest req){
         Long uid = (Long) req.getAttribute(GuestCookieFilter.ATTR);
         if (uid == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키 없음");
-        return svc.myList(uid).stream().map(f -> f.getListing().getId()).toList();
+        return svc.myList(uid).stream().map(f -> f.getPost().getId()).toList();
     }
 
-    // 특정 매물의 전체 찜 개수
-    @GetMapping("/{listingId}/count")
-    public long count(@PathVariable Long listingId){
-        return svc.count(listingId);
+    // ✅ 특정 매물의 전체 찜 개수
+    @GetMapping("/{postId}/count")
+    public long count(@PathVariable Long postId){
+        return svc.count(postId);
     }
 
-    // ✅ 단건 체크: 내가 이 매물을 찜했는가? (쿠키 없으면 false 반환)
-    @GetMapping("/{listingId}/me")
-    public Map<String, Boolean> me(@PathVariable Long listingId, HttpServletRequest req){
+    // ✅ 단건 체크: 내가 이 매물을 찜했는가? (쿠키 없으면 false)
+    @GetMapping("/{postId}/me")
+    public Map<String, Boolean> me(@PathVariable Long postId, HttpServletRequest req){
         Long uid = (Long) req.getAttribute(GuestCookieFilter.ATTR);
-        boolean favorited = svc.isMyFavorite(uid, listingId);
+        boolean favorited = svc.isMyFavorite(uid, postId);
         return Map.of("favorited", favorited);
     }
 
@@ -63,16 +65,16 @@ public class FavoriteController {
         if (ids == null || ids.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ids 파라미터가 필요합니다 (예: ids=1,2,3)");
         }
-        List<Long> listingIds;
+        List<Long> postIds;
         try {
-            listingIds = Arrays.stream(ids.split(","))
+            postIds = Arrays.stream(ids.split(","))
                     .map(String::trim).filter(s -> !s.isEmpty())
                     .map(Long::parseLong).collect(Collectors.toList());
         } catch (NumberFormatException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ids는 숫자 목록이어야 합니다");
         }
 
-        Long uid = (Long) req.getAttribute(GuestCookieFilter.ATTR); // null이어도 서비스가 false로 처리
-        return svc.areMyFavorites(uid, listingIds);
+        Long uid = (Long) req.getAttribute(GuestCookieFilter.ATTR); // null이어도 서비스에서 false 처리
+        return svc.areMyFavorites(uid, postIds);
     }
 }

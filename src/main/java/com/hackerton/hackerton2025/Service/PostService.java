@@ -1,62 +1,102 @@
+// src/main/java/com/hackerton/hackerton2025/Service/PostService.java
 package com.hackerton.hackerton2025.Service;
 
 import com.hackerton.hackerton2025.Dto.PostRequest;
 import com.hackerton.hackerton2025.Dto.PostResponse;
 import com.hackerton.hackerton2025.Entity.Post;
-import com.hackerton.hackerton2025.Entity.User;
 import com.hackerton.hackerton2025.Repository.PostRepository;
-import com.hackerton.hackerton2025.Repository.UserRepository;
+import com.hackerton.hackerton2025.Repository.ReviewRepository; // ⭐ 평균 별점 조회용
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class PostService {
 
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
+    private final ReviewRepository reviewRepository; // ⭐ 주입
+    private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    // 등록
-    public PostResponse createPost(PostRequest request) {
-        User owner = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+    /** 등록 - ownerId는 컨트롤러에서 쿠키(anon_id)로 받아서 넘김 */
+    public PostResponse createPost(Long ownerId, PostRequest request) {
+        if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
 
         Post post = Post.builder()
+                .ownerId(ownerId)
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .address(request.getAddress())
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .category(request.getCategory())
-                .owner(owner)
                 .build();
 
-        Post saved = postRepository.save(post);
-
-        return toResponse(saved);
+        return toResponse(postRepository.save(post));
     }
 
-    // 조회 (단건)
+    /** 조회(단건) */
+    @Transactional(readOnly = true)
     public PostResponse getPost(Long id) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."));
         return toResponse(post);
     }
 
-    // 조회 (전체)
+    /** 전체 조회(최신순) */
+    @Transactional(readOnly = true)
     public List<PostResponse> getAllPosts() {
-        return postRepository.findAll()
-                .stream().map(this::toResponse)
-                .collect(Collectors.toList());
+        return postRepository
+                .findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    // 수정
-    public PostResponse updatePost(Long id, PostRequest request) {
+    /** 내가 쓴 글 목록(페이지네이션, 최신순) */
+    @Transactional(readOnly = true)
+    public Page<PostResponse> myPosts(Long ownerId, int page, int size) {
+        if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByOwnerId(ownerId, pageable).map(this::toResponse);
+    }
+
+    /** 카테고리별 목록(페이지네이션, 최신순) */
+    @Transactional(readOnly = true)
+    public Page<PostResponse> listByCategory(String category, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByCategory(category, pageable).map(this::toResponse);
+    }
+
+    /** 지도 바운딩박스 목록(페이지네이션, 최신순) */
+    @Transactional(readOnly = true)
+    public Page<PostResponse> listInBounds(double minLat, double maxLat, double minLng, double maxLng,
+                                           int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository
+                .findByLatitudeBetweenAndLongitudeBetween(minLat, maxLat, minLng, maxLng, pageable)
+                .map(this::toResponse);
+    }
+
+    /** 수정 - 본인 소유만 가능 */
+    public PostResponse updatePost(Long ownerId, Long id, PostRequest request) {
+        if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
+
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."));
+
+        if (!ownerId.equals(post.getOwnerId()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 글만 수정할 수 있습니다.");
 
         post.setTitle(request.getTitle());
         post.setDescription(request.getDescription());
@@ -65,16 +105,30 @@ public class PostService {
         post.setLongitude(request.getLongitude());
         post.setCategory(request.getCategory());
 
-        Post updated = postRepository.save(post);
-        return toResponse(updated);
+        return toResponse(postRepository.save(post));
     }
 
-    // 삭제
-    public void deletePost(Long id) {
-        postRepository.deleteById(id);
+    /** 삭제 - 본인 소유만 가능 */
+    public void deletePost(Long ownerId, Long id) {
+        if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
+
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."));
+
+        if (!ownerId.equals(post.getOwnerId()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 글만 삭제할 수 있습니다.");
+
+        postRepository.delete(post);
     }
 
+    /** Post -> PostResponse (+ avgRating 포함) */
     private PostResponse toResponse(Post post) {
+        String created = (post.getCreatedAt() != null) ? post.getCreatedAt().format(TS_FMT) : null;
+
+        // ⭐ 평균 별점 조회 (리뷰 없으면 null → 0.0), 소수 첫째자리 반올림
+        Double avg = reviewRepository.avgRating(post.getId());
+        double avgRating = (avg == null) ? 0.0 : Math.round(avg * 10.0) / 10.0;
+
         return new PostResponse(
                 post.getId(),
                 post.getTitle(),
@@ -83,7 +137,9 @@ public class PostService {
                 post.getLatitude(),
                 post.getLongitude(),
                 post.getCategory(),
-                post.getOwner().getUserId()
+                post.getOwnerId(),
+                created,
+                avgRating // ⭐ 추가
         );
     }
 }

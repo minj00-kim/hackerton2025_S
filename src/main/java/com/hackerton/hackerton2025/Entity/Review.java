@@ -1,3 +1,4 @@
+// src/main/java/com/hackerton/hackerton2025/Entity/Review.java
 package com.hackerton.hackerton2025.Entity;
 
 import jakarta.persistence.*;
@@ -11,8 +12,8 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 @Table(
-        indexes = { @Index(name = "idx_review_listing", columnList = "listing_id") },
-        uniqueConstraints = { @UniqueConstraint(columnNames = {"listing_id", "user_id"}) }
+        indexes = { @Index(name = "idx_review_post", columnList = "post_id") },                 // ✅ 변경
+        uniqueConstraints = { @UniqueConstraint(columnNames = {"post_id", "user_id"}) }         // ✅ 변경
 )
 public class Review {
 
@@ -20,13 +21,14 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 로그인 없이 세션에서 발급한 익명ID
+    // 로그인 없이 세션/쿠키에서 발급한 익명 ID
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    // ✅ Listing → Post 기준으로 변경
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "listing_id", nullable = false)
-    private Listing listing;
+    @JoinColumn(name = "post_id", nullable = false)  // ✅ 컬럼명도 post_id 로
+    private Post post;
 
     @Column(nullable = false)
     private Integer rating; // 1~5
