@@ -83,7 +83,7 @@ public class PostService {
                 post.getLatitude(),
                 post.getLongitude(),
                 post.getCategory(),
-                post.getOwner().getId()
+                post.getOwner().getUserId()
         );
     }
 }
