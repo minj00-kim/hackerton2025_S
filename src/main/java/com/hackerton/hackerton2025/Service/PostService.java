@@ -1,3 +1,4 @@
+// src/main/java/com/hackerton/hackerton2025/Service/PostService.java
 package com.hackerton.hackerton2025.Service;
 
 import com.hackerton.hackerton2025.Dto.PostRequest;
@@ -17,6 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +48,7 @@ public class PostService {
                 .latitude(latLng.lat())
                 .longitude(latLng.lng())
                 .category(request.getCategory())
+                .imageUrls(safeUrls(request.getImageUrls()))   // ✅ 이미지 URL 저장
                 .build();
 
         return toResponse(postRepository.save(post));
@@ -114,6 +118,7 @@ public class PostService {
         post.setLongitude(latLng.lng());
 
         post.setCategory(request.getCategory());
+        post.setImageUrls(safeUrls(request.getImageUrls())); // ✅ 이미지 URL 갱신
 
         return toResponse(postRepository.save(post));
     }
@@ -149,7 +154,17 @@ public class PostService {
                 post.getCategory(),
                 post.getOwnerId(),
                 created,
-                avgRating // ⭐ 추가
+                avgRating,
+                post.getImageUrls() // ✅ 응답에 이미지 URL 포함
         );
+    }
+
+    /** null/공백 제거 + 중복 제거 */
+    private List<String> safeUrls(List<String> urls) {
+        if (urls == null) return Collections.emptyList();
+        return urls.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

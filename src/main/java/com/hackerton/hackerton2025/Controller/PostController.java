@@ -14,6 +14,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+
+
+import com.hackerton.hackerton2025.Service.FileStorageService;
 
 @RestController
 @RequestMapping("/posts")
@@ -21,7 +28,14 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
-
+    private final FileStorageService fileStorageService;
+    // 사진 등록
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<List<String>> uploadImages(
+            @RequestPart("images") List<MultipartFile> images) {
+        List<String> urls = fileStorageService.saveAll(images); // /uploads/2025/08/18/xxx.jpg
+        return ResponseEntity.ok(urls);
+    }
     // 등록 (쿠키로 소유자 식별)
     @PostMapping
     public ResponseEntity<PostResponse> createPost(@RequestBody @Valid PostRequest request,

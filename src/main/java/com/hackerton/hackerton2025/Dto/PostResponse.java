@@ -2,6 +2,7 @@ package com.hackerton.hackerton2025.Dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import java.util.List;
 
 @Getter
 @AllArgsConstructor
@@ -13,8 +14,8 @@ public class PostResponse {
     private Double latitude;
     private Double longitude;
     private String category;
-    private Long ownerId;      // ↓ 2번 참고해서 유지/대체 결정
-    private String createdAt;  // "yyyy-MM-dd HH:mm" 같은 포맷 권장
-    private Double avgRating;
+    private Long ownerId;     // 소유자(익명 쿠키 기준)
+    private String createdAt; // "yyyy-MM-dd HH:mm"
+    private double avgRating; // 소수 1자리 반올림 값
+    private List<String> imageUrls; // 업로드 이미지 URL 목록
 }
-

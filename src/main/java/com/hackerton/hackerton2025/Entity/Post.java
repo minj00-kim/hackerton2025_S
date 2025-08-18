@@ -3,6 +3,8 @@ package com.hackerton.hackerton2025.Entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -34,6 +36,13 @@ public class Post {
 
     @Column(length = 50)
     private String category;
+
+    // ✅ 이미지 URL들
+    @ElementCollection
+    @CollectionTable(name = "post_images", joinColumns = @JoinColumn(name = "post_id"))
+    @Column(name = "image_url", length = 512)
+    @Builder.Default
+    private List<String> imageUrls = new ArrayList<>();
 
     // ✅ 로그인 대신 쿠키 anon_id 저장
     @Column(name = "owner_id", nullable = false)
