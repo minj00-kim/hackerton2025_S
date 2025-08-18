@@ -1,4 +1,3 @@
-// src/main/java/com/hackerton/hackerton2025/Service/PostService.java
 package com.hackerton.hackerton2025.Service;
 
 import com.hackerton.hackerton2025.Dto.PostRequest;
@@ -26,19 +25,25 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final ReviewRepository reviewRepository; // ⭐ 주입
+    private final KakaoGeoService kakaoGeoService;   // ⭐ 주소 → 좌표
+
     private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     /** 등록 - ownerId는 컨트롤러에서 쿠키(anon_id)로 받아서 넘김 */
     public PostResponse createPost(Long ownerId, PostRequest request) {
         if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
 
+        // 주소로 좌표 조회 (요청의 lat/lng는 무시)
+        var latLng = kakaoGeoService.geocode(request.getAddress())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "주소 결과 없음"));
+
         Post post = Post.builder()
                 .ownerId(ownerId)
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .address(request.getAddress())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
+                .latitude(latLng.lat())
+                .longitude(latLng.lng())
                 .category(request.getCategory())
                 .build();
 
@@ -88,7 +93,7 @@ public class PostService {
                 .map(this::toResponse);
     }
 
-    /** 수정 - 본인 소유만 가능 */
+    /** 수정 - 본인 소유만 가능 (주소 변경 시 좌표 재계산) */
     public PostResponse updatePost(Long ownerId, Long id, PostRequest request) {
         if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
 
@@ -101,8 +106,13 @@ public class PostService {
         post.setTitle(request.getTitle());
         post.setDescription(request.getDescription());
         post.setAddress(request.getAddress());
-        post.setLatitude(request.getLatitude());
-        post.setLongitude(request.getLongitude());
+
+        // 주소 기준 좌표 재조회 (요청의 lat/lng는 무시)
+        var latLng = kakaoGeoService.geocode(request.getAddress())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "주소 결과 없음"));
+        post.setLatitude(latLng.lat());
+        post.setLongitude(latLng.lng());
+
         post.setCategory(request.getCategory());
 
         return toResponse(postRepository.save(post));

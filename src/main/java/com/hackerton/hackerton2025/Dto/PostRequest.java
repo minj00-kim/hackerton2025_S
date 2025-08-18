@@ -13,7 +13,5 @@ public class PostRequest {
     @NotBlank(message = "주소는 필수입니다.")
     private String address;
 
-    private Double latitude;
-    private Double longitude;
     private String category;
 }

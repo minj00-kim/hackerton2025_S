@@ -12,13 +12,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.RequestEntity;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import com.hackerton.hackerton2025.Service.KakaoGeoService;
 
 @RestController
 @RequestMapping("/api/server")
@@ -26,96 +26,77 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequiredArgsConstructor
 public class ServerController {
 
-    // 값이 비어 있어도 부팅되게 기본값("") 허용
-    @Value("${naver.api.id:}")
-    private String NAVER_API_ID;
+    private final KakaoGeoService kakaoGeoService;
 
-    @Value("${naver.api.secret:}")
-    private String NAVER_API_SECRET;
+    @Value("${kakao.api.key:}")
+    private String KAKAO_REST_KEY;
 
-    private static final String NAVER_OPENAPI = "https://openapi.naver.com";
+    private static final String KAKAO_BASE = "https://dapi.kakao.com";
     private static final ObjectMapper OM = new ObjectMapper();
 
-    // 경로 파라미터
-    @GetMapping("/naver/{name}")
-    public List<Map<String, String>> naver(@PathVariable String name) {
-        return searchLocation(name);
+    // Kakao 키워드 검색 (장소명 → 좌표/주소)
+    @GetMapping("/kakao/{name}")
+    public List<Map<String, String>> kakaoKeyword(@PathVariable String name) {
+        return searchLocationKakao(name);
     }
 
-    // 쿼리 파라미터
-    @GetMapping("/naver")
-    public List<Map<String, String>> naverSearchDynamic(@RequestParam String query) {
-        return searchLocation(query);
+    @GetMapping("/kakao")
+    public List<Map<String, String>> kakaoKeywordQuery(@RequestParam String query) {
+        return searchLocationKakao(query);
     }
 
-    // 네이버 지역 검색 API 호출
-    private List<Map<String, String>> searchLocation(String query) {
-        if (NAVER_API_ID.isBlank() || NAVER_API_SECRET.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "naver api key is not configured");
+    private List<Map<String, String>> searchLocationKakao(String query) {
+        if (KAKAO_REST_KEY == null || KAKAO_REST_KEY.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "kakao api key is not configured");
         }
         if (query == null || query.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "query is required");
         }
 
         try {
-            // 한글/공백 안전하게 인코딩
             URI uri = UriComponentsBuilder
-                    .fromUriString(NAVER_OPENAPI)
-                    .path("/v1/search/local.json")
+                    .fromUriString(KAKAO_BASE)
+                    .path("/v2/local/search/keyword.json")
                     .queryParam("query", query)
-                    .queryParam("display", 10)
-                    .queryParam("start", 1)
-                    .queryParam("sort", "random")
+                    .queryParam("size", 10) // 1~15
                     .build()
                     .encode(StandardCharsets.UTF_8)
                     .toUri();
 
-            RestTemplate restTemplate = new RestTemplate();
-            RequestEntity<Void> req = RequestEntity.get(uri)
-                    .header("X-Naver-Client-Id", NAVER_API_ID.trim())
-                    .header("X-Naver-Client-Secret", NAVER_API_SECRET.trim())
-                    .header("Accept", "application/json")
-                    .build();
+            RestTemplate rest = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "KakaoAK " + KAKAO_REST_KEY.trim());
+            headers.set("Accept", "application/json");
 
-            ResponseEntity<String> res = restTemplate.exchange(req, String.class);
+            ResponseEntity<String> res = rest.exchange(
+                    new RequestEntity<Void>(headers, HttpMethod.GET, uri),
+                    String.class
+            );
 
-            if (!res.getStatusCode().is2xxSuccessful()) {
-                // 어디서 막히는지 로그로 남김
-                log.error("NAVER API non-2xx: status={}, body={}", res.getStatusCode(), res.getBody());
+            if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
                 int code = res.getStatusCode().value();
-                if (code == 401 || code == 403) {
-                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                            "Naver Client ID/Secret 오류 또는 '검색>지역' 권한 미설정");
-                } else if (code == 429) {
-                    throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                            "Naver API 호출 한도 초과");
-                } else {
-                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                            "naver api error: " + res.getStatusCode());
-                }
+                log.error("KAKAO keyword non-2xx: status={}, body={}", res.getStatusCode(), res.getBody());
+                if (code == 401 || code == 403) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Kakao REST API 키 오류 또는 권한 미설정");
+                if (code == 429) throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Kakao API 호출 한도 초과");
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "kakao api error: " + res.getStatusCode());
             }
 
-            JsonNode items = OM.readTree(res.getBody()).path("items");
-
+            JsonNode docs = OM.readTree(res.getBody()).path("documents");
             List<Map<String, String>> out = new ArrayList<>();
-            for (JsonNode n : items) {
-                // 네이버 Local 검색 mapx/mapy 는 경도/위도 * 1e7
-                String x = n.path("mapx").asText();
-                String y = n.path("mapy").asText();
-                double lng = n.path("mapx").asDouble() / 1e7; // 경도
-                double lat = n.path("mapy").asDouble() / 1e7; // 위도
+
+            for (JsonNode d : docs) {
+                // Kakao: x=lng(경도), y=lat(위도)
+                String x = d.path("x").asText();
+                String y = d.path("y").asText();
 
                 Map<String, String> m = new HashMap<>();
-                m.put("title", stripTags(n.path("title").asText()));   // <b> 태그 제거
-                m.put("address", n.path("address").asText());
-                m.put("roadAddress", n.path("roadAddress").asText(""));
-                // 원본 값도 유지
+                m.put("title", d.path("place_name").asText());
+                m.put("address", d.path("address_name").asText(""));
+                m.put("roadAddress", d.path("road_address_name").asText(""));
                 m.put("x", x);
                 m.put("y", y);
-                // 위경도 변환값 추가
-                m.put("lng", Double.toString(lng));
-                m.put("lat", Double.toString(lat));
-
+                m.put("lng", x);
+                m.put("lat", y);
                 out.add(m);
             }
             return out;
@@ -123,12 +104,20 @@ public class ServerController {
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
-            log.error("네이버 API 호출 중 오류: {}", e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "naver api call failed");
+            log.error("카카오 키워드 검색 오류: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "kakao api call failed");
         }
     }
 
-    private static String stripTags(String s) {
-        return s == null ? "" : s.replaceAll("<.*?>", "");
+    // Kakao 지오코딩 (주소 → 좌표)
+    @GetMapping("/geocode")
+    public Map<String, Object> geocode(@RequestParam String address) {
+        var latLng = kakaoGeoService.geocode(address)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "주소 결과 없음"));
+        Map<String, Object> out = new HashMap<>();
+        out.put("address", address);
+        out.put("lat", latLng.lat());
+        out.put("lng", latLng.lng());
+        return out;
     }
 }
