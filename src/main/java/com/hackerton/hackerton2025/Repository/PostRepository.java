@@ -4,7 +4,11 @@ import com.hackerton.hackerton2025.Entity.Post;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 // 필요하면 @Query, @Param 추가 임포트
+
+import java.util.List;
 
 import java.util.List;
 
@@ -30,6 +34,20 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             Double minLat, Double maxLat, Double minLng, Double maxLng, Pageable pageable
     );
 
+    @Query(value ="""
+        SELECT * FROM posts p
+        WHERE p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+          AND (
+            2 * 6371000 * ASIN(SQRT(
+                POWER(SIN(RADIANS((:lat - p.latitude) / 2)), 2) +
+                COS(RADIANS(p.latitude)) * COS(RADIANS(:lat)) *
+                POWER(SIN(RADIANS((:lng - p.longitude) / 2)), 2)
+            ))
+          ) <= :radius
+        """ , nativeQuery = true)
+    List<Post> findNearby(@Param("lat") double lat,
+                          @Param("lng") double lng,
+                          @Param("radius") double radiusMeters);
     // 필요하면 여기서 반경 검색(Haversine) 네이티브 쿼리로 추가 가능
     // @Query(nativeQuery = true, value = " ... ", countQuery = " ... ")
     // Page<Post> findWithinRadius(@Param("lat") double lat, @Param("lng") double lng, @Param("radiusKm") double radiusKm, Pageable pageable);
