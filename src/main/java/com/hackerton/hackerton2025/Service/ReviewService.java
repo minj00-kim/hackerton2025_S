@@ -1,13 +1,12 @@
-// src/main/java/com/hackerton/hackerton2025/Service/ReviewService.java
 package com.hackerton.hackerton2025.Service;
 
 import com.hackerton.hackerton2025.Dto.RatingSummaryResponse;
 import com.hackerton.hackerton2025.Dto.ReviewItemResponse;
 import com.hackerton.hackerton2025.Dto.ReviewRequest;
 import com.hackerton.hackerton2025.Dto.ReviewResponse;
-import com.hackerton.hackerton2025.Entity.Post;          // ✅ 변경
+import com.hackerton.hackerton2025.Entity.Post;
 import com.hackerton.hackerton2025.Entity.Review;
-import com.hackerton.hackerton2025.Repository.PostRepository;   // ✅ 변경
+import com.hackerton.hackerton2025.Repository.PostRepository;
 import com.hackerton.hackerton2025.Repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -16,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -25,7 +25,9 @@ import java.util.List;
 public class ReviewService {
 
     private final ReviewRepository reviewRepo;
-    private final PostRepository postRepo;                 // ✅ 변경
+    private final PostRepository postRepo;
+
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     /** 작성 */
     public Long write(Long postId, Long userId, ReviewRequest req) {
@@ -38,7 +40,7 @@ public class ReviewService {
         }
 
         Review r = Review.builder()
-                .post(post)             // ✅ 변경
+                .post(post)
                 .userId(userId)
                 .rating(req.rating())
                 .comment(req.comment())
@@ -63,10 +65,9 @@ public class ReviewService {
         reviewRepo.delete(r);
     }
 
-    /** 목록(전체) */
+    /** 목록(전체) — ReviewResponse 사용(userId 포함) */
     @Transactional(readOnly = true)
     public List<ReviewResponse> list(Long postId) {
-        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         return reviewRepo.findByPost_IdOrderByCreatedAtDesc(postId)
                 .stream()
                 .map(r -> new ReviewResponse(
@@ -74,12 +75,12 @@ public class ReviewService {
                         r.getUserId(),
                         r.getRating(),
                         r.getComment(),
-                        r.getCreatedAt().format(f)
+                        fmt(r.getCreatedAt())
                 ))
                 .toList();
     }
 
-    /** 페이지네이션 + 내가 쓴 리뷰 여부 */
+    /** 페이지네이션 + 내가 쓴 리뷰 여부 — ReviewItemResponse 사용(userId 숨김, mine 표시) */
     @Transactional(readOnly = true)
     public Page<ReviewItemResponse> listPaged(Long postId, Long currentUserId,
                                               int page, int size, String sort) {
@@ -88,13 +89,12 @@ public class ReviewService {
         Sort.Direction dir = (s.length > 1) ? Sort.Direction.fromString(s[1]) : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(dir, s[0]));
 
-        DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
         return reviewRepo.findByPost_Id(postId, pageable)
                 .map(r -> new ReviewItemResponse(
                         r.getId(),
                         r.getRating(),
                         r.getComment(),
-                        r.getCreatedAt().format(f),
+                        fmt(r.getCreatedAt()),
                         currentUserId != null && currentUserId.equals(r.getUserId())
                 ));
     }
@@ -102,9 +102,15 @@ public class ReviewService {
     /** 평점 요약(평균/개수) */
     @Transactional(readOnly = true)
     public RatingSummaryResponse ratingSummary(Long postId) {
-        Double avg = reviewRepo.avgRating(postId);             // null 가능
-        long cnt = reviewRepo.countByPost_Id(postId);          // ✅ 변경
+        Double avg = reviewRepo.avgRating(postId);        // null 가능
+        long cnt = reviewRepo.countByPost_Id(postId);
         double rounded = (avg == null ? 0.0 : Math.round(avg * 10.0) / 10.0);
         return new RatingSummaryResponse(rounded, cnt);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+
+    private String fmt(LocalDateTime t) {
+        return (t == null) ? null : t.format(FMT);
     }
 }

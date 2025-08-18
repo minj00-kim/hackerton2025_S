@@ -1,9 +1,13 @@
 // src/main/java/com/hackerton/hackerton2025/Service/PostService.java
 package com.hackerton.hackerton2025.Service;
 
+import com.hackerton.hackerton2025.Dto.PostDetailResponse;
 import com.hackerton.hackerton2025.Dto.PostRequest;
 import com.hackerton.hackerton2025.Dto.PostResponse;
+import com.hackerton.hackerton2025.Dto.ReviewItemResponse;
+import com.hackerton.hackerton2025.Entity.ListingStatus;
 import com.hackerton.hackerton2025.Entity.Post;
+import com.hackerton.hackerton2025.Repository.FavoriteRepository;
 import com.hackerton.hackerton2025.Repository.PostRepository;
 import com.hackerton.hackerton2025.Repository.ReviewRepository; // ⭐ 평균 별점 조회용
 import lombok.RequiredArgsConstructor;
@@ -15,10 +19,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.hackerton.hackerton2025.Entity.ListingStatus;
+import com.hackerton.hackerton2025.Dto.PostDetailResponse;
+import com.hackerton.hackerton2025.Dto.ReviewItemResponse;
+import com.hackerton.hackerton2025.Repository.FavoriteRepository;
+import com.hackerton.hackerton2025.Entity.Review;
+import java.util.Objects;
 
+import java.util.*;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Collections;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,7 +39,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final ReviewRepository reviewRepository; // ⭐ 주입
     private final KakaoGeoService kakaoGeoService;   // ⭐ 주소 → 좌표
-
+    private final FavoriteRepository favoriteRepository;
     private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     /** 등록 - ownerId는 컨트롤러에서 쿠키(anon_id)로 받아서 넘김 */
@@ -155,7 +165,8 @@ public class PostService {
                 post.getOwnerId(),
                 created,
                 avgRating,
-                post.getImageUrls() // ✅ 응답에 이미지 URL 포함
+                post.getImageUrls(),  // ✅ 응답에 이미지 URL 포함
+                post.getStatus().name()
         );
     }
 
@@ -166,5 +177,53 @@ public class PostService {
                 .filter(s -> s != null && !s.isBlank())
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+    public PostResponse updateStatus(Long ownerId, Long id, String statusRaw) {
+        if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
+
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."));
+
+        if (!ownerId.equals(post.getOwnerId()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 글만 수정할 수 있습니다.");
+
+        ListingStatus status;
+        try {
+            status = ListingStatus.valueOf(statusRaw.trim().toUpperCase(Locale.ROOT));
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status 값은 AVAILABLE/RESERVED/SOLD 이어야 합니다.");
+        }
+
+        post.setStatus(status);
+        return toResponse(postRepository.save(post));
+    }
+    @Transactional(readOnly = true)
+    public PostDetailResponse getPostDetail(Long viewerId, Long postId) {
+        // 기존 PostResponse 재사용
+        PostResponse post = getPost(postId);
+
+        // ✅ 즐겨찾기 여부 (엔티티가 @ManyToOne Post post; 구조일 때 _Id 네이밍)
+        boolean favorite = viewerId != null
+                && favoriteRepository.existsByUserIdAndPost_Id(viewerId, postId);
+
+        // ✅ 리뷰 개수
+        long reviewCount = reviewRepository.countByPost_Id(postId);
+
+        // ✅ 최신 10개 리뷰: findTop10... 대신 Pageable 사용 (이미 ReviewService에서 쓰던 방식)
+        Pageable top10 = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
+        var latest = reviewRepository.findByPost_Id(postId, top10).getContent();
+
+        var reviews = latest.stream()
+                .map(r -> new ReviewItemResponse(
+                        r.getId(),
+                        r.getRating(),
+                        r.getComment(),
+                        r.getCreatedAt() == null ? null : r.getCreatedAt().format(TS_FMT),
+                        viewerId != null && Objects.equals(viewerId, r.getUserId())
+                ))
+                .toList();
+
+        return new PostDetailResponse(post, favorite, reviewCount, reviews);
     }
 }

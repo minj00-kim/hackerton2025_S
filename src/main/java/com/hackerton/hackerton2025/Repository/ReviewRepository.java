@@ -34,4 +34,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // ✅ 총 리뷰 개수
     long countByPost_Id(Long postId);
+
+    long countByPostId(Long postId);
+    List<Review> findTop10ByPostIdOrderByCreatedAtDesc(Long postId);
 }

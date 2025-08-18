@@ -1,5 +1,6 @@
 package com.hackerton.hackerton2025.Controller;
 
+import com.hackerton.hackerton2025.Dto.PostDetailResponse;
 import com.hackerton.hackerton2025.Dto.PostRequest;
 import com.hackerton.hackerton2025.Dto.PostResponse;
 import com.hackerton.hackerton2025.Security.GuestCookieFilter;
@@ -18,8 +19,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
-
-
+import com.hackerton.hackerton2025.Dto.PostDetailResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import com.hackerton.hackerton2025.Dto.UpdateStatusRequest;
 import com.hackerton.hackerton2025.Service.FileStorageService;
 
 @RestController
@@ -104,5 +106,21 @@ public class PostController {
         if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키 없음");
         postService.deletePost(ownerId, id);
         return ResponseEntity.ok("게시글이 삭제되었습니다.");
+    }
+    //상태 변경
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<PostResponse> updateStatus(@PathVariable Long id,
+                                                     @RequestBody @Valid UpdateStatusRequest body,
+                                                     HttpServletRequest req) {
+        Long ownerId = (Long) req.getAttribute(GuestCookieFilter.ATTR);
+        if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키 없음");
+        return ResponseEntity.ok(postService.updateStatus(ownerId, id, body.getStatus()));
+    }
+
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<PostDetailResponse> getDetail(@PathVariable Long id,
+                                                        HttpServletRequest req) {
+        Long viewerId = (Long) req.getAttribute(GuestCookieFilter.ATTR); // 없으면 null
+        return ResponseEntity.ok(postService.getPostDetail(viewerId, id));
     }
 }

@@ -18,4 +18,5 @@ public class PostResponse {
     private String createdAt; // "yyyy-MM-dd HH:mm"
     private double avgRating; // 소수 1자리 반올림 값
     private List<String> imageUrls; // 업로드 이미지 URL 목록
+    private String status;
 }
