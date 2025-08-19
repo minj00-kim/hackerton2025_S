@@ -5,6 +5,7 @@ import com.hackerton.hackerton2025.Dto.PostRequest;
 import com.hackerton.hackerton2025.Dto.PostResponse;
 import com.hackerton.hackerton2025.Security.GuestCookieFilter;
 import com.hackerton.hackerton2025.Service.PostService;
+import com.hackerton.hackerton2025.Support.CategoryRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,8 +14,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.hackerton.hackerton2025.Support.CategoryRegistry;
 
+import java.util.Arrays;
+import java.util.Map;
 import java.util.List;
+import java.util.Map;
+
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
@@ -123,4 +129,38 @@ public class PostController {
         Long viewerId = (Long) req.getAttribute(GuestCookieFilter.ATTR); // 없으면 null
         return ResponseEntity.ok(postService.getPostDetail(viewerId, id));
     }
+
+    @GetMapping("/categories")
+    public ResponseEntity<List<Map<String,Object>>> categoriesWithCounts() {
+        var rows = postService.countCategories(); // 서비스에서 집계 결과 받기
+        var countMap = rows.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        r -> r.get("name").toString(),
+                        r -> (Long) r.get("count")
+                ));
+
+        var out = CategoryRegistry.CATEGORIES.stream()
+                .map(name -> {
+                    long c = countMap.getOrDefault(name, 0L);
+                    return java.util.Map.<String,Object>of("name", name, "count", c);
+                })
+                .toList();
+
+        return ResponseEntity.ok(out);
+    }
+
+    // PostController.java에 추가
+    @GetMapping("/{id}/nearby")
+    public ResponseEntity<Map<String,Object>> nearby(@PathVariable Long id,
+                                                     @RequestParam(defaultValue = "500") int radius,
+                                                     @RequestParam(defaultValue = "FD6,CE7,HP8,CS2") String cats) {
+        String[] codes = Arrays.stream(cats.split(",")).map(String::trim).toArray(String[]::new);
+        var counts = postService.nearbyGroupCounts(id, radius, codes);
+        return ResponseEntity.ok(Map.of(
+                "postId", id,
+                "radius", radius,
+                "counts", counts   // 예: {"FD6":12,"CE7":3,"HP8":2,"CS2":5}
+        ));
+    }
+
 }

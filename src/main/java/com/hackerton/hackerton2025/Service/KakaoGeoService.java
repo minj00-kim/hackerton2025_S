@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -26,6 +27,7 @@ public class KakaoGeoService {
     private final RestTemplate rest = new RestTemplate();
 
     /** 주소 문자열 → (lat,lng). 성공 시 Optional.of, 실패 시 Optional.empty */
+    @Cacheable(cacheNames = "kakao:geocode", key = "#address")
     public Optional<LatLng> geocode(String address) {
         if (KAKAO_REST_KEY == null || KAKAO_REST_KEY.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "kakao api key is not configured");
@@ -36,7 +38,7 @@ public class KakaoGeoService {
             URI uri = UriComponentsBuilder.fromHttpUrl(BASE)
                     .queryParam("query", address)
                     .build()
-                    .encode(StandardCharsets.UTF_8)
+                    .encode(StandardCharsets.UTF_8) // ✅ 한글 주소 인코딩
                     .toUri();
 
             HttpHeaders headers = new HttpHeaders();
@@ -47,6 +49,7 @@ public class KakaoGeoService {
                     new RequestEntity<Void>(headers, HttpMethod.GET, uri),
                     String.class
             );
+
             if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
                 log.warn("Kakao geocode non-2xx: status={}, body={}", res.getStatusCode(), res.getBody());
                 return Optional.empty();

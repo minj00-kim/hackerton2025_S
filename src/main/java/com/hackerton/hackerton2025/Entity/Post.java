@@ -10,9 +10,18 @@ import java.util.List;
 @Table(
         name = "posts",
         indexes = {
-                @Index(name = "idx_posts_owner", columnList = "owner_id"),
-                @Index(name = "idx_posts_category", columnList = "category"),
-                @Index(name = "idx_posts_created", columnList = "created_at")
+                @Index(name = "idx_posts_owner",      columnList = "owner_id"),
+                @Index(name = "idx_posts_category",   columnList = "category"),
+                @Index(name = "idx_posts_created",    columnList = "created_at"),
+
+                // 지역 탐색용 인덱스 (단일 + 복합)
+                @Index(name = "idx_posts_sido_code",  columnList = "sido_code"),
+                @Index(name = "idx_posts_sgg_code",   columnList = "sgg_code"),
+                @Index(name = "idx_posts_dong_code",  columnList = "dong_code"),
+                @Index(name = "idx_posts_region_codes", columnList = "sido_code, sgg_code, dong_code"),
+
+                // 지도 바운딩박스 검색 최적화
+                @Index(name = "idx_posts_lat_lng",    columnList = "latitude, longitude")
         }
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -37,14 +46,24 @@ public class Post {
     @Column(length = 50)
     private String category;
 
-    // ✅ 이미지 URL들
+    // 지역(법정동) 정보
+    @Column(name = "sido",    length = 20) private String sido;      // 예) 서울특별시
+    @Column(name = "sigungu", length = 30) private String sigungu;   // 예) 강서구
+    @Column(name = "dong",    length = 50) private String dong;      // 예) 공항동
+
+    // 법정동 코드
+    @Column(name = "sido_code", length = 2)   private String sidoCode; // 예) 11
+    @Column(name = "sgg_code",  length = 5)   private String sggCode;  // 예) 11500
+    @Column(name = "dong_code", length = 10)  private String dongCode; // 예) 11500560
+
+    // 이미지 URL들
     @ElementCollection
     @CollectionTable(name = "post_images", joinColumns = @JoinColumn(name = "post_id"))
     @Column(name = "image_url", length = 512)
     @Builder.Default
     private List<String> imageUrls = new ArrayList<>();
 
-    // ✅ 로그인 대신 쿠키 anon_id 저장
+    // 로그인 대신 쿠키 anon_id
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
 
@@ -66,8 +85,20 @@ public class Post {
     void preUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
     private ListingStatus status = ListingStatus.AVAILABLE;
+
+    // 서비스 레벨에서 한 번에 세팅할 때 유틸
+    public void setRegion(String sido, String sigungu, String dong,
+                          String sidoCode, String sggCode, String dongCode) {
+        this.sido = sido;
+        this.sigungu = sigungu;
+        this.dong = dong;
+        this.sidoCode = sidoCode;
+        this.sggCode = sggCode;
+        this.dongCode = dongCode;
+    }
 }

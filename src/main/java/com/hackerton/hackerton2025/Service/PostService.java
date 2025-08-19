@@ -9,26 +9,21 @@ import com.hackerton.hackerton2025.Entity.ListingStatus;
 import com.hackerton.hackerton2025.Entity.Post;
 import com.hackerton.hackerton2025.Repository.FavoriteRepository;
 import com.hackerton.hackerton2025.Repository.PostRepository;
-import com.hackerton.hackerton2025.Repository.ReviewRepository; // ⭐ 평균 별점 조회용
+import com.hackerton.hackerton2025.Repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import com.hackerton.hackerton2025.Entity.ListingStatus;
-import com.hackerton.hackerton2025.Dto.PostDetailResponse;
-import com.hackerton.hackerton2025.Dto.ReviewItemResponse;
-import com.hackerton.hackerton2025.Repository.FavoriteRepository;
-import com.hackerton.hackerton2025.Entity.Review;
-import java.util.Objects;
 
-import java.util.*;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,18 +32,24 @@ import java.util.stream.Collectors;
 public class PostService {
 
     private final PostRepository postRepository;
-    private final ReviewRepository reviewRepository; // ⭐ 주입
-    private final KakaoGeoService kakaoGeoService;   // ⭐ 주소 → 좌표
+    private final ReviewRepository reviewRepository;
+    private final KakaoGeoService kakaoGeoService;        // 주소 → 좌표
+    private final KakaoRegionService kakaoRegionService;  // 좌표 → 시/구/동(코드)
     private final FavoriteRepository favoriteRepository;
+    private final KakaoPlacesService kakaoPlacesService;
+
     private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    /** 등록 - ownerId는 컨트롤러에서 쿠키(anon_id)로 받아서 넘김 */
+    /** 등록 */
     public PostResponse createPost(Long ownerId, PostRequest request) {
         if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
 
-        // 주소로 좌표 조회 (요청의 lat/lng는 무시)
+        // 주소 → 좌표
         var latLng = kakaoGeoService.geocode(request.getAddress())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "주소 결과 없음"));
+
+        // 좌표 → 행정구역(이름+코드)
+        var reg = kakaoRegionService.coord2region(latLng.lat(), latLng.lng()).orElse(null);
 
         Post post = Post.builder()
                 .ownerId(ownerId)
@@ -58,7 +59,14 @@ public class PostService {
                 .latitude(latLng.lat())
                 .longitude(latLng.lng())
                 .category(request.getCategory())
-                .imageUrls(safeUrls(request.getImageUrls()))   // ✅ 이미지 URL 저장
+                .imageUrls(safeUrls(request.getImageUrls()))
+                // 지역 필드 (getXxx() 사용)
+                .sido(     reg == null ? null : reg.getSido())
+                .sigungu(  reg == null ? null : reg.getSigungu())
+                .dong(     reg == null ? null : reg.getDong())
+                .sidoCode( reg == null ? null : reg.getSidoCode())
+                .sggCode(  reg == null ? null : reg.getSggCode())
+                .dongCode( reg == null ? null : reg.getDongCode())
                 .build();
 
         return toResponse(postRepository.save(post));
@@ -75,11 +83,8 @@ public class PostService {
     /** 전체 조회(최신순) */
     @Transactional(readOnly = true)
     public List<PostResponse> getAllPosts() {
-        return postRepository
-                .findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        return postRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+                .stream().map(this::toResponse).toList();
     }
 
     /** 내가 쓴 글 목록(페이지네이션, 최신순) */
@@ -107,7 +112,7 @@ public class PostService {
                 .map(this::toResponse);
     }
 
-    /** 수정 - 본인 소유만 가능 (주소 변경 시 좌표 재계산) */
+    /** 수정 - 본인 소유만 가능 (주소 변경 시 좌표/지역 재계산) */
     public PostResponse updatePost(Long ownerId, Long id, PostRequest request) {
         if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
 
@@ -120,15 +125,24 @@ public class PostService {
         post.setTitle(request.getTitle());
         post.setDescription(request.getDescription());
         post.setAddress(request.getAddress());
+        post.setCategory(request.getCategory());
+        post.setImageUrls(safeUrls(request.getImageUrls()));
 
-        // 주소 기준 좌표 재조회 (요청의 lat/lng는 무시)
+        // 주소 → 좌표
         var latLng = kakaoGeoService.geocode(request.getAddress())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "주소 결과 없음"));
         post.setLatitude(latLng.lat());
         post.setLongitude(latLng.lng());
 
-        post.setCategory(request.getCategory());
-        post.setImageUrls(safeUrls(request.getImageUrls())); // ✅ 이미지 URL 갱신
+        // 좌표 → 행정구역 갱신 (getXxx() 사용)
+        kakaoRegionService.coord2region(latLng.lat(), latLng.lng()).ifPresent(r -> {
+            post.setSido(r.getSido());
+            post.setSigungu(r.getSigungu());
+            post.setDong(r.getDong());
+            post.setSidoCode(r.getSidoCode());
+            post.setSggCode(r.getSggCode());
+            post.setDongCode(r.getDongCode());
+        });
 
         return toResponse(postRepository.save(post));
     }
@@ -150,7 +164,6 @@ public class PostService {
     private PostResponse toResponse(Post post) {
         String created = (post.getCreatedAt() != null) ? post.getCreatedAt().format(TS_FMT) : null;
 
-        // ⭐ 평균 별점 조회 (리뷰 없으면 null → 0.0), 소수 첫째자리 반올림
         Double avg = reviewRepository.avgRating(post.getId());
         double avgRating = (avg == null) ? 0.0 : Math.round(avg * 10.0) / 10.0;
 
@@ -165,7 +178,7 @@ public class PostService {
                 post.getOwnerId(),
                 created,
                 avgRating,
-                post.getImageUrls(),  // ✅ 응답에 이미지 URL 포함
+                post.getImageUrls(),
                 post.getStatus().name()
         );
     }
@@ -198,19 +211,16 @@ public class PostService {
         post.setStatus(status);
         return toResponse(postRepository.save(post));
     }
+
     @Transactional(readOnly = true)
     public PostDetailResponse getPostDetail(Long viewerId, Long postId) {
-        // 기존 PostResponse 재사용
         PostResponse post = getPost(postId);
 
-        // ✅ 즐겨찾기 여부 (엔티티가 @ManyToOne Post post; 구조일 때 _Id 네이밍)
         boolean favorite = viewerId != null
                 && favoriteRepository.existsByUserIdAndPost_Id(viewerId, postId);
 
-        // ✅ 리뷰 개수
         long reviewCount = reviewRepository.countByPost_Id(postId);
 
-        // ✅ 최신 10개 리뷰: findTop10... 대신 Pageable 사용 (이미 ReviewService에서 쓰던 방식)
         Pageable top10 = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
         var latest = reviewRepository.findByPost_Id(postId, top10).getContent();
 
@@ -226,4 +236,45 @@ public class PostService {
 
         return new PostDetailResponse(post, favorite, reviewCount, reviews);
     }
+
+    /** (진단용) 특정 포스트 기준, 반경 내 카카오 그룹코드 집계 */
+    public Map<String,Integer> nearbyGroupCounts(Long postId, int radiusM, String[] groupCodes) {
+        Post p = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글 없음"));
+        if (p.getLatitude() == null || p.getLongitude() == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "좌표 없음");
+
+        Map<String,Integer> out = new LinkedHashMap<>();
+        for (String g : groupCodes) {
+            int cnt = kakaoPlacesService.countByGroup(p.getLatitude(), p.getLongitude(), g.trim(), radiusM);
+            out.put(g.trim(), cnt);
+        }
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> countCategories() {
+        return postRepository.countByCategory().stream()
+                .map(v -> Map.<String,Object>of(
+                        "name",  v.getCategory(),
+                        "count", v.getCnt()
+                ))
+                .toList();
+    }
+
+    // PostService.java 내부에 추가
+    @Transactional(readOnly = true)
+    public Page<PostResponse> listBySgg(String sggCode, int page, int size) {
+        var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findBySggCodeOrderByCreatedAtDesc(sggCode, pageable)
+                .map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PostResponse> listByDong(String dongCode, int page, int size) {
+        var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return postRepository.findByDongCodeOrderByCreatedAtDesc(dongCode, pageable)
+                .map(this::toResponse);
+    }
+
 }
