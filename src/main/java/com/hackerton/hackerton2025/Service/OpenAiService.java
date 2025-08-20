@@ -97,7 +97,7 @@ public class OpenAiService {
             String fallback = digText(resp);
             if (fallback != null) return fallback;
 
-            // 3) 그래도 없으면 원문 문자열ㅇ
+            // 3) 그래도 없으면 원문 문자열
             return String.valueOf(resp);
 
         } catch (RestClientResponseException e) {
