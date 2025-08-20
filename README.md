@@ -27,3 +27,5 @@ npm run dev
 
 - 서버: http://localhost:5050
 - 웹:   http://localhost:3000
+
+화이팅
