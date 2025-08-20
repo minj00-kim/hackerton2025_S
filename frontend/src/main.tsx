@@ -11,10 +11,11 @@ import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import { router } from './router'
 
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Suspense fallback={<div className="center-col p-6 text-gray-500">로딩 중…</div>}>
       <RouterProvider router={router} />
-    </Suspense>
+    </Suspense> 
   </React.StrictMode>
 )

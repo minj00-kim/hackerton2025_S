@@ -1,53 +1,50 @@
-// 카테고리 아이콘 그리드
-// - 아이콘(이모지) 클릭 시 /listings?theme=<카테고리> 로 이동
-// - 백엔드 /api/listings 의 theme 필터가 매칭되어 해당 카테고리 매물만 보입니다.
+import { Link } from 'react-router-dom'
+import Card from './Card'
 
-import { Link } from "react-router-dom";
+type Cat = { slug: string; label: string; icon: string }
+const CATS: Cat[] = [
+  { slug: 'coffee',     label: '커피',     icon: '☕' },
+  { slug: 'kfood',      label: '한식',     icon: '🍚' },
+  { slug: 'pub',        label: '주점',     icon: '🍺' },
+  { slug: 'life',       label: '생활서비스', icon: '🧰' },
+  { slug: 'taxlaw',     label: '법무·세무', icon: '⚖️' },
+  { slug: 'logi',       label: '운송물류',  icon: '🚚' },
+  { slug: 'estate',     label: '부동산',    icon: '🏢' },
+  { slug: 'law',        label: '법률',     icon: '🔨' },
+  { slug: 'chicken',    label: '치킨',     icon: '🍗' },
+  { slug: 'pizza',      label: '피자',     icon: '🍕' },
+  { slug: 'beauty',     label: '미용',     icon: '💇' },
+  { slug: 'bakery',     label: '베이커리',  icon: '🥐' },
+  { slug: 'security',   label: '보안',     icon: '🛡️' },
+  { slug: 'finance',    label: '금융',     icon: '💳' },
+  { slug: 'academy',    label: '학원',     icon: '📘' },
+  { slug: 'pet',        label: '반려동물',  icon: '🐾' },
+]
 
-type Cat = { key: string; label: string; emoji: string };
-
-const CATEGORIES: Cat[] = [
-  { key: "coffee", label: "커피", emoji: "☕" },
-  { key: "korean", label: "한식", emoji: "🍚" },
-  { key: "pub", label: "주점", emoji: "🍺" },
-  { key: "life", label: "생활서비스", emoji: "🧰" },
-  { key: "taxlaw", label: "법무·세무", emoji: "⚖️" },
-  { key: "logi", label: "운송물류", emoji: "🚚" },
-  { key: "estate", label: "부동산", emoji: "🏢" },
-  { key: "law", label: "법률", emoji: "🔨" },
-  { key: "chicken", label: "치킨", emoji: "🍗" },
-  { key: "pizza", label: "피자", emoji: "🍕" },
-  { key: "beauty", label: "미용", emoji: "💇" },
-  { key: "bakery", label: "베이커리", emoji: "🥐" },
-  { key: "security", label: "보안", emoji: "🛡️" },
-  { key: "finance", label: "금융", emoji: "💳" },
-  { key: "academy", label: "학원", emoji: "📘" },
-  { key: "pet", label: "반려동물", emoji: "🐾" },
-];
-
-export default function CategoryGrid() {
+export default function CategoryGrid(){
   return (
-    <div className="card p-6">
-      <div className="text-lg font-semibold mb-1">카테고리</div>
-      <p className="text-sm text-gray-600 mb-4">
-        아이콘만 클릭해도 <b>상세 페이지</b>로 이동합니다.
-      </p>
-
-      {/* 가운데 정렬 + 가로로 쭉(줄바꿈 허용) */}
-      <div className="flex flex-wrap justify-center gap-3">
-        {CATEGORIES.map((c) => (
-          <Link
-            key={c.key}
-            to={`/listings?theme=${encodeURIComponent(c.label)}`}
-            className="w-[92px] h-[92px] rounded-2xl border bg-white hover:bg-brand-50 hover:border-brand-200 transition flex flex-col items-center justify-center text-center"
-            aria-label={`${c.label} 카테고리로 이동`}
-            title={c.label}
-          >
-            <span className="text-3xl">{c.emoji}</span>
-            <span className="text-xs mt-2 text-gray-800">{c.label}</span>
-          </Link>
-        ))}
+    <Card>
+      <div className="mb-4">
+        <div className="text-2xl font-bold">카테고리</div>
+        <div className="text-gray-500 text-sm">
+          아이콘만 클릭해도 <span className="font-semibold">상세 페이지</span>로 이동합니다.
+        </div>
       </div>
-    </div>
-  );
+
+      <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        {CATS.map(c => (
+          <li key={c.slug}>
+            {/* 필요에 맞게 이동 경로 수정하세요. 예: /category/:slug 또는 /listings?type= */}
+            <Link
+              to={`/listings?type=${encodeURIComponent(c.label)}`}
+              className="group flex flex-col items-center gap-2 rounded-2xl border bg-white hover:bg-slate-50 shadow-sm px-5 py-6 transition"
+            >
+              <div className="text-4xl">{c.icon}</div>
+              <div className="text-sm font-medium text-gray-800">{c.label}</div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
 }

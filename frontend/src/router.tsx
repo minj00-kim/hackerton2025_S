@@ -13,6 +13,9 @@ const Compare = lazy(() => import('./views/Compare'))
 const Account = lazy(() => import('./views/Account'))
 const AdminUpload = lazy(() => import('./views/AdminUpload'))
 
+const AiLanding = lazy(() => import('./views/AiLanding'))
+const AiChat = lazy(() => import('./views/AiChat'))
+
 export const router = createBrowserRouter([
   {
     element: <MainLayout />,
@@ -27,6 +30,9 @@ export const router = createBrowserRouter([
       { path: '/consulting/compare', element: <Compare /> },
       { path: '/account', element: <Account /> },
       { path: '/admin/upload', element: <AdminUpload /> },
+
+      { path: '/ai', element: <AiLanding /> },
+      { path: '/ai/chat', element: <AiChat /> },
     ]
   }
 ])

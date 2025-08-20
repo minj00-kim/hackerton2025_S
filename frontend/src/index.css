@@ -8,3 +8,26 @@
 .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700; }
 .btn-outline { @apply btn bg-white border hover:bg-slate-50; }
 .chip { @apply px-2 py-1 text-xs rounded-lg bg-brand-50 text-brand-700; }
+
+/* 헤더 메뉴가 좁은 폭에서 줄바꿈되지 않도록 스크롤바 숨김 */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 보라/네이비 우주감 그라데이션 히어로 (부동산플래닛 느낌) */
+.hero-gradient{
+  /* 바깥 배경과 톤을 맞추려면 아래 linear-gradient를 연한 회색(#f3f4f6) 계열로 바꿀 수 있습니다. */
+  background:
+    radial-gradient(800px 500px at 20% -10%, rgba(124,58,237,0.35), transparent 60%),
+    radial-gradient(700px 400px at 110% 10%, rgba(59,130,246,0.28), transparent 60%),
+    linear-gradient(180deg, #1a1030 0%, #21103a 55%, #1b0e33 100%);
+}
+
+/* === full-bleed section utility === */
+.full-bleed {
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+}
