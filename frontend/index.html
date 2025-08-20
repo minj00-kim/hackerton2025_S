@@ -1,0 +1,18 @@
+<!-- frontend/index.html -->
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seosan Vacant.AI</title>
+    <!-- Kakao Maps SDK: env 키가 있을 때만 동적 로드 -->
+    <script
+  id="kakao-maps-sdk"
+  src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=ae2869d39c2a25211707031305384167&libraries=services,clusterer">
+</script>
+  </head>
+  <body class="min-h-screen bg-slate-50">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,95 @@
+[
+  {
+    "id": "l1",
+    "title": "서산 부춘동 중심 상가 1층 코너",
+    "region": "부춘동",
+    "address": "충남 서산시 읍내동 120-1",
+    "type": "상가",
+    "area": 60,
+    "deposit": 3000,
+    "rent": 250,
+    "images": [
+      "https://picsum.photos/seed/seosan1/1200/800"
+    ],
+    "theme": [
+      "역세권",
+      "오피스 밀집"
+    ],
+    "lat": 36.7818,
+    "lng": 126.4528
+  },
+  {
+    "id": "l2",
+    "title": "동문1동 먹자골목 2층 테라스",
+    "region": "동문1동",
+    "address": "충남 서산시 동문동 245-3",
+    "type": "상가",
+    "area": 78,
+    "deposit": 2800,
+    "rent": 220,
+    "images": [
+      "https://picsum.photos/seed/seosan2/1200/800"
+    ],
+    "theme": [
+      "청년 상권",
+      "야식"
+    ],
+    "lat": 36.7769,
+    "lng": 126.4579
+  },
+  {
+    "id": "l3",
+    "title": "석남동 대로변 1층 카페 적합",
+    "region": "석남동",
+    "address": "충남 서산시 석림동 35-2",
+    "type": "상가",
+    "area": 48,
+    "deposit": 2000,
+    "rent": 180,
+    "images": [
+      "https://picsum.photos/seed/seosan3/1200/800"
+    ],
+    "theme": [
+      "주택가 인접"
+    ],
+    "lat": 36.7894,
+    "lng": 126.4643
+  },
+  {
+    "id": "l4",
+    "title": "수석동 학세권 상가 1층",
+    "region": "수석동",
+    "address": "충남 서산시 수석동 88-9",
+    "type": "상가",
+    "area": 55,
+    "deposit": 2200,
+    "rent": 170,
+    "images": [
+      "https://picsum.photos/seed/seosan4/1200/800"
+    ],
+    "theme": [
+      "학세권",
+      "주택가"
+    ],
+    "lat": 36.7859,
+    "lng": 126.4762
+  },
+  {
+    "id": "l5",
+    "title": "해미읍 관광길 인접 1층",
+    "region": "해미읍",
+    "address": "충남 서산시 해미면 읍내리 100",
+    "type": "상가",
+    "area": 52,
+    "deposit": 1800,
+    "rent": 150,
+    "images": [
+      "https://picsum.photos/seed/seosan5/1200/800"
+    ],
+    "theme": [
+      "관광 특화"
+    ],
+    "lat": 36.7124,
+    "lng": 126.5579
+  }
+]
