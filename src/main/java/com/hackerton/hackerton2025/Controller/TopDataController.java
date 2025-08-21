@@ -22,9 +22,7 @@ public class TopDataController {
             @RequestParam(required = false) String start,
             @RequestParam(required = false) String end
     ) throws Exception {
-
         return svc.run(start, end);
-
 
     }
 
