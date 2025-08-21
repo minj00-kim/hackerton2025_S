@@ -2,9 +2,11 @@
 package com.hackerton.hackerton2025.Repository;
 
 import com.hackerton.hackerton2025.Entity.Post;
+import com.hackerton.hackerton2025.Entity.DealType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -60,23 +62,20 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     }
 
     // ===== 지역 집계/조회 =====
-
-    /** 네이티브 집계 결과 매핑용 프로젝션 */
     interface RegionAgg {
-        String getCode();    // sgg_code 또는 dong_code
-        String getName();    // sigungu 또는 dong
+        String getCode();
+        String getName();
         long   getCnt();
         Double getAvgLat();
         Double getAvgLng();
     }
 
-    /** 시도 내 시군구별 개수(충남: sidoCode='34') */
     @Query(value = """
-            SELECT p.sgg_code            AS code,
+            SELECT p.sgg_code              AS code,
                    COALESCE(p.sigungu, '') AS name,
-                   COUNT(*)               AS cnt,
-                   AVG(p.latitude)        AS avgLat,
-                   AVG(p.longitude)       AS avgLng
+                   COUNT(*)                AS cnt,
+                   AVG(p.latitude)         AS avgLat,
+                   AVG(p.longitude)        AS avgLng
             FROM posts p
             WHERE p.sido_code = :sido
             GROUP BY p.sgg_code, p.sigungu
@@ -84,13 +83,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             """, nativeQuery = true)
     List<RegionAgg> countBySggInSido(@Param("sido") String sidoCode);
 
-    /** 시군구 내 읍면동별 개수 */
     @Query(value = """
-            SELECT p.dong_code           AS code,
-                   COALESCE(p.dong, '')  AS name,
-                   COUNT(*)              AS cnt,
-                   AVG(p.latitude)       AS avgLat,
-                   AVG(p.longitude)      AS avgLng
+            SELECT p.dong_code             AS code,
+                   COALESCE(p.dong, '')    AS name,
+                   COUNT(*)                AS cnt,
+                   AVG(p.latitude)         AS avgLat,
+                   AVG(p.longitude)        AS avgLng
             FROM posts p
             WHERE p.sgg_code = :sgg
             GROUP BY p.dong_code, p.dong
@@ -98,11 +96,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             """, nativeQuery = true)
     List<RegionAgg> countByDongInSgg(@Param("sgg") String sggCode);
 
-    /** 지역별 목록(최신순) */
     Page<Post> findBySggCodeOrderByCreatedAtDesc(String sggCode, Pageable pageable);
     Page<Post> findByDongCodeOrderByCreatedAtDesc(String dongCode, Pageable pageable);
 
-    /** 백필용: 좌표 O + 코드 누락 */
     @Query("""
        select p from Post p
        where p.latitude is not null and p.longitude is not null
@@ -110,19 +106,16 @@ public interface PostRepository extends JpaRepository<Post, Long> {
        """)
     Page<Post> findMissingRegionCodesWithCoords(Pageable pageable);
 
-    /** 백필용: 코드 누락(좌표 여부 무관) */
     @Query("""
        select p from Post p
        where (p.sidoCode is null or p.sggCode is null or p.dongCode is null)
        """)
     Page<Post> findMissingRegionCodes(Pageable pageable);
 
-    /** 시도 내 시군구별 개수 — 매물 0건 지역 포함 */
     @Query(value = """
     SELECT s.sgg_code              AS code,
            s.name                  AS name,
            COALESCE(COUNT(p.id), 0) AS cnt,
-           /* 마스터 중심좌표를 avgLat/avgLng 이름으로 내려서 기존 프로젝션 재사용 */
            s.center_lat            AS avgLat,
            s.center_lng            AS avgLng
     FROM region_sgg s
@@ -133,7 +126,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     """, nativeQuery = true)
     List<RegionAgg> countBySggInSidoIncludeZero(@Param("sido") String sidoCode);
 
-    /** 시군구 내 읍면동별 개수 — 매물 0건 지역 포함 (region_dong 준비 후 사용) */
     @Query(value = """
     SELECT d.dong_code             AS code,
            d.name                  AS name,
@@ -147,4 +139,21 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     ORDER BY cnt DESC, d.name ASC
     """, nativeQuery = true)
     List<RegionAgg> countByDongInSggIncludeZero(@Param("sgg") String sggCode);
+
+    // ===== 검색/정렬 =====
+    Page<Post> findByDealType(DealType dealType, Pageable pageable);
+
+    // ===== 인기 관련 카운터(원자적 업데이트) =====
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Post p set p.favCount = p.favCount + 1 where p.id = :id")
+    int incFav(@Param("id") Long id);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Post p set p.favCount = case when p.favCount>0 then p.favCount-1 else 0 end where p.id = :id")
+    int decFav(@Param("id") Long id);
+
+    // ✅ 조회수도 원자적으로 증가시키는 메서드 추가 (중복 증가/경쟁 조건 방지)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Post p set p.views = p.views + 1 where p.id = :id")
+    int incViews(@Param("id") Long id);
 }

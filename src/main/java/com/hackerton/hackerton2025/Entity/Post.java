@@ -123,4 +123,12 @@ public class Post {
     @Column(name = "area_m2")
     private Double areaM2;
 
+// 매물 조회
+    @Column(name = "fav_count", nullable = false)
+    @Builder.Default
+    private long favCount = 0L;
+
+    @Column(name = "views", nullable = false)
+    @Builder.Default
+    private long views = 0L;
 }
