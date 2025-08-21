@@ -44,11 +44,13 @@ public class PostService {
     public PostResponse createPost(Long ownerId, PostRequest request) {
         if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
 
+        // 신규: 거래/비용 검증
+        validatePricing(request.getDealType(), request);
+
         // 주소 → 좌표
         var latLng = kakaoGeoService.geocode(request.getAddress())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "주소 결과 없음"));
 
-        // 좌표 → 행정구역(이름+코드)
         var reg = kakaoRegionService.coord2region(latLng.lat(), latLng.lng()).orElse(null);
 
         Post post = Post.builder()
@@ -60,7 +62,16 @@ public class PostService {
                 .longitude(latLng.lng())
                 .category(request.getCategory())
                 .imageUrls(safeUrls(request.getImageUrls()))
-                // 지역 필드 (getXxx() 사용)
+
+                // ====== 부동산 필드 매핑 ======
+                .dealType(request.getDealType())
+                .price(request.getPrice())
+                .deposit(request.getDeposit())
+                .rentMonthly(request.getRentMonthly())
+                .maintenanceFee(request.getMaintenanceFee())
+                .areaM2(request.getAreaM2())
+
+                // 지역 필드
                 .sido(     reg == null ? null : reg.getSido())
                 .sigungu(  reg == null ? null : reg.getSigungu())
                 .dong(     reg == null ? null : reg.getDong())
@@ -122,11 +133,22 @@ public class PostService {
         if (!ownerId.equals(post.getOwnerId()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 글만 수정할 수 있습니다.");
 
+        // 신규: 거래/비용 검증
+        validatePricing(request.getDealType(), request);
+
         post.setTitle(request.getTitle());
         post.setDescription(request.getDescription());
         post.setAddress(request.getAddress());
         post.setCategory(request.getCategory());
         post.setImageUrls(safeUrls(request.getImageUrls()));
+
+        // ====== 부동산 필드 갱신 ======
+        post.setDealType(request.getDealType());
+        post.setPrice(request.getPrice());
+        post.setDeposit(request.getDeposit());
+        post.setRentMonthly(request.getRentMonthly());
+        post.setMaintenanceFee(request.getMaintenanceFee());
+        post.setAreaM2(request.getAreaM2());
 
         // 주소 → 좌표
         var latLng = kakaoGeoService.geocode(request.getAddress())
@@ -134,7 +156,6 @@ public class PostService {
         post.setLatitude(latLng.lat());
         post.setLongitude(latLng.lng());
 
-        // 좌표 → 행정구역 갱신 (getXxx() 사용)
         kakaoRegionService.coord2region(latLng.lat(), latLng.lng()).ifPresent(r -> {
             post.setSido(r.getSido());
             post.setSigungu(r.getSigungu());
@@ -146,6 +167,7 @@ public class PostService {
 
         return toResponse(postRepository.save(post));
     }
+
 
     /** 삭제 - 본인 소유만 가능 */
     public void deletePost(Long ownerId, Long id) {
@@ -179,9 +201,18 @@ public class PostService {
                 created,
                 avgRating,
                 post.getImageUrls(),
-                post.getStatus().name()
+                post.getStatus().name(),
+
+                // ===== 부동산 필드 =====
+                post.getDealType(),
+                post.getPrice(),
+                post.getDeposit(),
+                post.getRentMonthly(),
+                post.getMaintenanceFee(),
+                post.getAreaM2()
         );
     }
+
 
     /** null/공백 제거 + 중복 제거 */
     private List<String> safeUrls(List<String> urls) {
@@ -275,6 +306,24 @@ public class PostService {
         var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return postRepository.findByDongCodeOrderByCreatedAtDesc(dongCode, pageable)
                 .map(this::toResponse);
+    }
+
+    // PostService 클래스 내부 맨 아래 근처에 추가
+    private void validatePricing(com.hackerton.hackerton2025.Entity.DealType type, PostRequest r) {
+        switch (type) {
+            case SALE -> {
+                if (r.getPrice() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "매매가(price)가 필요합니다.");
+            }
+            case JEONSE -> {
+                if (r.getPrice() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "전세보증금(price)가 필요합니다.");
+            }
+            case MONTHLY -> {
+                if (r.getRentMonthly() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "월세(rentMonthly)가 필요합니다.");
+                if (r.getDeposit() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "보증금(deposit)이 필요합니다.");
+            }
+        }
+        if (r.getAreaM2() == null || r.getAreaM2() <= 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "면적(areaM2)이 필요합니다.");
     }
 
 }

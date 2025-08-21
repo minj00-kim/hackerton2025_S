@@ -5,7 +5,8 @@ import lombok.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.math.BigDecimal;
+import com.hackerton.hackerton2025.Entity.DealType;
 @Entity
 @Table(
         name = "posts",
@@ -101,4 +102,25 @@ public class Post {
         this.sggCode = sggCode;
         this.dongCode = dongCode;
     }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deal_type", length = 20, nullable = false)        // ⬅ 추가
+    @Builder.Default
+    private DealType dealType = DealType.SALE;                         // 기본값: 매매
+
+    @Column(name = "price")                                            // ⬅ 추가
+    private Long price;        // SALE: 매매가, JEONSE: 전세보증금
+
+    @Column(name = "deposit")                                          // ⬅ 추가
+    private Long deposit;      // MONTHLY 전용 보증금(없으면 0)
+
+    @Column(name = "rent_monthly")                                     // ⬅ 추가
+    private Long rentMonthly;  // MONTHLY 전용 월세(원)
+
+    @Column(name = "maintenance_fee")                                  // ⬅ 추가
+    private Long maintenanceFee; // 관리비(원/월)
+
+    @Column(name = "area_m2")
+    private Double areaM2;
+
 }
