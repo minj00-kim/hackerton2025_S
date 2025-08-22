@@ -7,3 +7,5 @@ public record ReviewResponse(
         String comment,
         String createdAt   // 서비스/컨트롤러에서 포맷팅해서 넣어줌
 ) {}
+
+
