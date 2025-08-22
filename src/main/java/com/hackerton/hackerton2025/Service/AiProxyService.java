@@ -14,7 +14,7 @@ public class AiProxyService {
     // RestTemplate 빈이 없어도 new 로 바로 사용 가능
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${ai.node.url:http://localhost:3001}")
+    @Value("${ai.node.url:https://api.openai.com}")
     private String base;
 
     public ResponseEntity<String> health() {

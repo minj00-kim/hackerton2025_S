@@ -1,56 +1,45 @@
 package com.hackerton.hackerton2025.Controller;
 
 
-import com.hackerton.hackerton2025.Service.AiProxyService;
-import jakarta.validation.constraints.NotBlank;
+
+import com.hackerton.hackerton2025.Dto.AskRequest;
+import com.hackerton.hackerton2025.Dto.AskResponse;
+import com.hackerton.hackerton2025.Service.OpenAiService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
-@Validated
+
+
+
 public class AiController {
 
-    private final AiProxyService ai;
+    private final OpenAiService ai;
 
-    // Node AI 서버 헬스체크 프록시
     @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ai.health();
+    public ResponseEntity<?> health() {
+        try {
+            return ai.health();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "openai_unreachable", "detail", e.getMessage()));
+        }
     }
 
-    // 지오코딩: GET /api/ai/geocode?address=서산시%20호수공원
-    @GetMapping("/geocode")
-    public ResponseEntity<String> geocode(@RequestParam @NotBlank String address) {
-        return ai.geocode(address);
-    }
-
-    // 추천: POST /api/ai/recommend (본문: { listings: [...], options: {...} })
-    @PostMapping("/recommend")
-    public ResponseEntity<String> recommend(@RequestBody String body) {
-        return ai.recommend(body);
-    }
-
-    // 시뮬레이터: POST /api/ai/simulate (본문: { ... })
-    @PostMapping("/simulate")
-    public ResponseEntity<String> simulate(@RequestBody String body) {
-        return ai.simulate(body);
-    }
-
-    // 지역 비교: GET /api/ai/compare?a=부춘동&b=동문1동
-    @GetMapping("/compare")
-    public ResponseEntity<String> compare(
-            @RequestParam("a") @NotBlank String a,
-            @RequestParam("b") @NotBlank String b
-    ) {
-        return ai.compare(a, b);
+    @PostMapping("/ask")
+    public ResponseEntity<?> ask(@Valid @RequestBody AskRequest req) {
+        try {
+            String text = ai.ask(req.getQuestion(), req.getSystem());
+            return ResponseEntity.ok(new AskResponse(text));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "failed_to_ask_openai", "detail", e.getMessage()));
+        }
     }
 }
