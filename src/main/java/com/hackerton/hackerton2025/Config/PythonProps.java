@@ -5,14 +5,19 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app.python")
 
+
 public class PythonProps {
 
-    private String bin;
-    private String workDir;
-    public String bin() { return bin; }
-    public void setBin(String bin) { this.bin = bin; }
-    public String workDir() { return workDir; }
-    public void setWorkDir(String workDir) { this.workDir = workDir; }
 
+    /** python 실행 파일 경로 (예: C:\...\python.exe) */
+    private String exec = "python";
+    /** 스크립트가 있는 작업 디렉터리 */
+    private String workDir = ".";
+
+    public String getExec() { return exec; }
+    public void setExec(String exec) { this.exec = exec; }
+
+    public String getWorkDir() { return workDir; }
+    public void setWorkDir(String workDir) { this.workDir = workDir; }
 
 }
