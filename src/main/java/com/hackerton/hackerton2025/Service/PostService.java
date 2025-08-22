@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,12 +35,15 @@ public class PostService {
     private final FavoriteRepository favoriteRepository;
     private final KakaoPlacesService kakaoPlacesService;
 
-    private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter TS_FMT   = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DATE_ISO = DateTimeFormatter.ISO_LOCAL_DATE;             // 2025-09-01
+    private static final DateTimeFormatter DATE_KR  = DateTimeFormatter.ofPattern("yyyy년 M월 d일"); // 2025년 9월 1일
 
     /** 등록 */
     public PostResponse createPost(Long ownerId, PostRequest request) {
         if (ownerId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "익명 쿠키가 없습니다.");
         validatePricing(request.getDealType(), request);
+        validateMoveIn(request.getMoveInImmediate(), request.getMoveInDate());
 
         var latLng = kakaoGeoService.geocode(request.getAddress())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "주소 결과 없음"));
@@ -68,6 +72,10 @@ public class PostService {
                 .sidoCode( reg == null ? null : reg.getSidoCode())
                 .sggCode(  reg == null ? null : reg.getSggCode())
                 .dongCode( reg == null ? null : reg.getDongCode())
+                // 추가 필드
+                .contactPhone(request.getContactPhone())
+                .moveInImmediate(Boolean.TRUE.equals(request.getMoveInImmediate()))
+                .moveInDate(Boolean.TRUE.equals(request.getMoveInImmediate()) ? null : request.getMoveInDate())
                 .build();
 
         return toResponse(postRepository.save(post));
@@ -124,6 +132,7 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인 글만 수정할 수 있습니다.");
 
         validatePricing(request.getDealType(), request);
+        validateMoveIn(request.getMoveInImmediate(), request.getMoveInDate());
 
         post.setTitle(request.getTitle());
         post.setDescription(request.getDescription());
@@ -137,6 +146,11 @@ public class PostService {
         post.setRentMonthly(request.getRentMonthly());
         post.setMaintenanceFee(request.getMaintenanceFee());
         post.setAreaM2(request.getAreaM2());
+        // 추가 필드
+        post.setContactPhone(request.getContactPhone());
+        boolean imm = Boolean.TRUE.equals(request.getMoveInImmediate());
+        post.setMoveInImmediate(imm);
+        post.setMoveInDate(imm ? null : request.getMoveInDate());
 
         var latLng = kakaoGeoService.geocode(request.getAddress())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "주소 결과 없음"));
@@ -271,7 +285,7 @@ public class PostService {
         };
     }
 
-    /** 유효성 검사 */
+    /** 유효성 검사: 가격/면적 */
     private void validatePricing(DealType type, PostRequest r) {
         switch (type) {
             case SALE -> {
@@ -293,6 +307,17 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "면적(areaM2)이 필요합니다.");
     }
 
+    /** 유효성 검사: 입주 가능일 */
+    private void validateMoveIn(Boolean moveInImmediate, LocalDate moveInDate) {
+        boolean imm = Boolean.TRUE.equals(moveInImmediate);
+        if (imm && moveInDate != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "moveInImmediate=true이면 moveInDate는 비워야 합니다.");
+        }
+        if (!imm && moveInDate == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "moveInImmediate=false이면 moveInDate(yyyy-MM-dd)가 필요합니다.");
+        }
+    }
+
     /** Entity → Response */
     private PostResponse toResponse(Post post) {
         String created = (post.getCreatedAt() != null) ? post.getCreatedAt().format(TS_FMT) : null;
@@ -300,32 +325,44 @@ public class PostService {
         Double avg = reviewRepository.avgRating(post.getId());
         double avgRating = (avg == null) ? 0.0 : Math.round(avg * 10.0) / 10.0;
 
-        return new PostResponse(
-                post.getId(),
-                post.getTitle(),
-                post.getDescription(),
-                post.getAddress(),
-                post.getLatitude(),
-                post.getLongitude(),
-                post.getCategory(),
-                post.getOwnerId(),
-                created,
-                avgRating,
-                post.getImageUrls(),
-                post.getStatus().name(),
+        boolean imm = post.isMoveInImmediate();
+        String moveInDateStr = (post.getMoveInDate() == null) ? null : post.getMoveInDate().format(DATE_ISO);
+        String moveInText = imm
+                ? "즉시 입주"
+                : (post.getMoveInDate() == null ? null : post.getMoveInDate().format(DATE_KR) + " 입주 가능");
 
-                // ===== 부동산 필드 =====
-                post.getDealType(),
-                post.getPrice(),
-                post.getDeposit(),
-                post.getRentMonthly(),
-                post.getMaintenanceFee(),
-                post.getAreaM2(),
+        return PostResponse.builder()
+                .id(post.getId())
+                .title(post.getTitle())
+                .description(post.getDescription())
+                .address(post.getAddress())
+                .latitude(post.getLatitude())
+                .longitude(post.getLongitude())
+                .category(post.getCategory())
+                .ownerId(post.getOwnerId())
+                .createdAt(created)
+                .avgRating(avgRating)
+                .imageUrls(post.getImageUrls())
+                .status(post.getStatus().name())
 
-                // ===== 추가: 조회/찜 =====
-                post.getViews(),
-                post.getFavCount()
-        );
+                // 부동산 필드
+                .dealType(post.getDealType())
+                .price(post.getPrice())
+                .deposit(post.getDeposit())
+                .rentMonthly(post.getRentMonthly())
+                .maintenanceFee(post.getMaintenanceFee())
+                .areaM2(post.getAreaM2())
+
+                // 조회/찜
+                .views(post.getViews())
+                .favCount(post.getFavCount())
+
+                // 추가 필드
+                .contactPhone(post.getContactPhone())
+                .moveInImmediate(imm)
+                .moveInDate(moveInDateStr)
+                .moveInText(moveInText)
+                .build();
     }
 
     /** 유틸 */

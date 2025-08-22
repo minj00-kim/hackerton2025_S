@@ -9,10 +9,15 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5500","http://localhost:3000") // 프론트 주소로 교체
+                .allowedOriginPatterns(
+                        "http://localhost:*",
+                        "http://127.0.0.1:*"
+                        // 필요하면 사내 IP대역도: "http://192.168.*.*:*"
+                )
                 .allowedMethods("GET","POST","PUT","PATCH","DELETE","OPTIONS")
                 .allowedHeaders("*")
-                .allowCredentials(true)   // 쿠키 쓰면 꼭 필요(GuestCookieFilter 때문에)
+                .exposedHeaders("Location","Content-Disposition","X-Total-Count") // 프론트에서 읽어야 하면
+                .allowCredentials(true)   // 쿠키 전송 허용
                 .maxAge(3600);
     }
 }

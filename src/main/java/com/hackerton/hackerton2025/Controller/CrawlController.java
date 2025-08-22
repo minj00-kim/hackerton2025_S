@@ -1,5 +1,5 @@
+// src/main/java/com/hackerton/hackerton2025/Controller/CrawlController.java
 package com.hackerton.hackerton2025.Controller;
-
 
 import com.hackerton.hackerton2025.Service.JsonStoreService;
 import com.hackerton.hackerton2025.Service.PythonRunner;
@@ -13,8 +13,6 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/crawl")
-
-
 public class CrawlController {
 
     private final PythonRunner py;
@@ -30,17 +28,44 @@ public class CrawlController {
     // 파이썬 크롤러 실행 (node-ai/crawl_youth_grants.py)
     @PostMapping("/run")
     public ResponseEntity<?> runCrawl(
-            @RequestParam(defaultValue = "청년창업 지원금") String query,
+            @RequestParam(required = false) List<String> query,   // 여러 개 쿼리 허용
             @RequestParam(defaultValue = "40") int maxItems
     ) throws Exception {
 
-        List<String> args = List.of(
-                "crawl_youth_grants.py", "--query", query, "--max-items", String.valueOf(maxItems)
-        );
+        // 빈/누락이면 기본값 하나 넣기
+        if (query == null || query.isEmpty()) {
+            query = List.of("청년창업 지원금");
+        } else if (query.size() == 1 && query.get(0) != null && query.get(0).contains(",")) {
+            // "부동산 정책,청년 전세자금,전월세, 창업" 처럼 한 파라미터에 쉼표로 들어온 경우 분해
+            query = Arrays.stream(query.get(0).split("\\s*,\\s*"))
+                    .map(String::trim).filter(s -> !s.isBlank()).toList();
+        }
+
+        maxItems = Math.max(1, maxItems);
+
+        // 파이썬 인자 구성
+        List<String> args = new ArrayList<>();
+        args.add("crawl_youth_grants.py");
+        for (String q : query) {
+            if (q != null && !q.isBlank()) {
+                args.add("--query");
+                args.add(q);
+            }
+        }
+        args.add("--max-items");
+        args.add(String.valueOf(maxItems));
 
         Map<String,String> env = new HashMap<>();
-        String apiKey = System.getenv("OPENAI_API_KEY"); // 요약 쓰는 경우에만 필요
-        if (apiKey != null) env.put("OPENAI_API_KEY", apiKey);
+        // 파이썬에 출력 경로/옵션 전달
+        if (crawlBase != null && !crawlBase.isBlank()) {
+            env.put("CRAWL_BASE_OUT", crawlBase);
+        }
+        env.put("CRAWL_FETCH_OG", "1");
+        env.put("CRAWL_FAVICON_FALLBACK", "1");
+        env.put("CRAWL_TIMEOUT", "10");
+        env.put("CRAWL_SLEEP_MS", "50");
+        env.put("PYTHONUTF8", "1");
+        env.put("PYTHONIOENCODING", "utf-8");
 
         var res = py.run(args.get(0), args.subList(1, args.size()), env, Duration.ofMinutes(6));
         if (res.exitCode() != 0) {
@@ -50,7 +75,7 @@ public class CrawlController {
         var latestDir = store.findLatestDir(Path.of(crawlBase));
         var jsonPath  = latestDir.resolve("youth_grants_extracted.json");
 
-        // ✅ 결과 파일 존재 체크
+        // 결과 파일 존재 체크
         if (!jsonPath.toFile().exists()) {
             return ResponseEntity.status(404).body(Map.of(
                     "error", "RESULT_NOT_FOUND",
@@ -68,13 +93,10 @@ public class CrawlController {
         ));
     }
 
-    // 최신 결과 반환
     @GetMapping("/latest")
     public ResponseEntity<?> latest() throws Exception {
         var latestDir = store.findLatestDir(Path.of(crawlBase));
         var jsonPath  = latestDir.resolve("youth_grants_extracted.json");
-
-        // ✅ 결과 파일 존재 체크
         if (!jsonPath.toFile().exists()) {
             return ResponseEntity.status(404).body(Map.of(
                     "error", "RESULT_NOT_FOUND",
@@ -82,12 +104,10 @@ public class CrawlController {
                     "expected", jsonPath.toString()
             ));
         }
-
         var data = store.readArrayJson(jsonPath);
         return ResponseEntity.ok(data);
     }
 
-    // ✅ 최신 기사 리스트(정렬) 반환
     @GetMapping("/list")
     public ResponseEntity<?> list(@RequestParam(defaultValue = "20") int limit) throws Exception {
         var latestDir = store.findLatestDir(Path.of(crawlBase));
@@ -95,15 +115,11 @@ public class CrawlController {
         if (!jsonPath.toFile().exists()) {
             return ResponseEntity.status(404).body(Map.of("error","RESULT_NOT_FOUND","expected", jsonPath.toString()));
         }
-
         var arr = store.readArrayJson(jsonPath); // List<Map<String,Object>>
         arr.sort(CrawlController::compareArticleLikeMaps);
-
-        if (limit < 1) limit = 1;
-        return ResponseEntity.ok(arr.stream().limit(limit).toList());
+        return ResponseEntity.ok(arr.stream().limit(Math.max(1, limit)).toList());
     }
 
-    // ✅ 키워드 검색: ?q=창업&limit=20  또는 ?q=창업,대출
     @GetMapping("/search")
     public ResponseEntity<?> search(
             @RequestParam(name = "q") String q,
@@ -141,25 +157,20 @@ public class CrawlController {
         var sorted = new ArrayList<>(filtered);
         sorted.sort(CrawlController::compareArticleLikeMaps);
 
-        if (limit < 1) limit = 1;
-        return ResponseEntity.ok(sorted.stream().limit(limit).toList());
+        return ResponseEntity.ok(sorted.stream().limit(Math.max(1, limit)).toList());
     }
 
-    // --------- 헬퍼들 ---------
     private static int compareArticleLikeMaps(Map<String,Object> a, Map<String,Object> b) {
-        // 1) score desc
         Double sa = tryDouble(a.get("score"));
         Double sb = tryDouble(b.get("score"));
         if (!Objects.equals(sa, sb)) {
             return Double.compare(sb == null ? -1 : sb, sa == null ? -1 : sa);
         }
-        // 2) publishedAt/date desc (문자열 비교로도 최신이 먼저 오도록)
         String da = asString(a.get("publishedAt"), a.get("date"), a.get("published"));
         String db = asString(b.get("publishedAt"), b.get("date"), b.get("published"));
         if (da != null && db != null && !da.equals(db)) {
             return db.compareTo(da);
         }
-        // 3) title asc
         String ta = asString(a.get("title"));
         String tb = asString(b.get("title"));
         if (ta == null) ta = "";
@@ -181,8 +192,4 @@ public class CrawlController {
         }
         return null;
     }
-
-
-
-
 }

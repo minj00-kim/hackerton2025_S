@@ -1,13 +1,10 @@
 package com.hackerton.hackerton2025.Config;
 
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @ConfigurationProperties(prefix = "app.python")
-
-
 public class PythonProps {
-
 
     /** python 실행 파일 경로 (예: C:\...\python.exe) */
     private String exec = "python";
@@ -19,5 +16,4 @@ public class PythonProps {
 
     public String getWorkDir() { return workDir; }
     public void setWorkDir(String workDir) { this.workDir = workDir; }
-
 }

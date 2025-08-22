@@ -35,4 +35,9 @@ public class PostResponse {
     // ===== 추가: 조회/찜 =====
     private long views;          // 조회수
     private long favCount;       // 찜수
+
+    private String contactPhone;     // 등록자 연락처
+    private Boolean moveInImmediate; // 즉시 입주 여부
+    private String moveInDate;       // yyyy-MM-dd 문자열
+    private String moveInText;       // "즉시 입주" 또는 "yyyy년 M월 d일 입주 가능"
 }

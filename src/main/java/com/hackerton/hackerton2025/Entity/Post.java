@@ -2,6 +2,8 @@ package com.hackerton.hackerton2025.Entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -131,4 +133,15 @@ public class Post {
     @Column(name = "views", nullable = false)
     @Builder.Default
     private long views = 0L;
+
+
+    @Column(name = "contact_phone", length = 30)
+    private String contactPhone;    // 등록자 연락처
+
+    @Column(name = "move_in_immediate", nullable = false)
+    @Builder.Default
+    private boolean moveInImmediate = false; // 즉시 입주 여부
+
+    @Column(name = "move_in_date")
+    private LocalDate moveInDate;   // 즉시가 아니면 날짜(yyyy-MM-dd)
 }

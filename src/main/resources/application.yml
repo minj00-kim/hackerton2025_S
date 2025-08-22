@@ -1,0 +1,8 @@
+app:
+  crawl:
+    startup:
+      enabled: true
+      query: "부동산 정책,청년 전세자금,전월세,창업"
+      max: 12
+exports:
+  crawlDir: "C:\\Users\\82106\\IdeaProjects\\hackerton2025_S\\data\\crawl\\outputs"

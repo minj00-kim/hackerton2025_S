@@ -5,6 +5,8 @@ import jakarta.validation.constraints.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
+
+import java.time.LocalDate;
 import java.util.List;
 import com.hackerton.hackerton2025.Entity.DealType;
 @Getter
@@ -42,4 +44,10 @@ public class PostRequest {
 
     @Positive(message="면적(areaM2)은 0보다 커야 합니다.")
     private Double areaM2;  // m²
+
+    @Pattern(regexp = "^\\+?\\d[\\d\\- ]{7,20}$", message = "연락처 형식이 올바르지 않습니다.")
+    private String contactPhone;           // 예: 010-1234-5678
+
+    private Boolean moveInImmediate;       // true면 즉시 입주
+    private LocalDate moveInDate;          // false일 때 yyyy-MM-dd
 }
