@@ -1,0 +1,132 @@
+[
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 1",
+    "url": "https://example.com/1",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 1",
+    "score": 0.405,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 2",
+    "url": "https://example.com/2",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 2",
+    "score": 0.03,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 3",
+    "url": "https://example.com/3",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 3",
+    "score": 0.632,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 4",
+    "url": "https://example.com/4",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 4",
+    "score": 0.806,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 5",
+    "url": "https://example.com/5",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 5",
+    "score": 0.354,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 6",
+    "url": "https://example.com/6",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 6",
+    "score": 0.531,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 7",
+    "url": "https://example.com/7",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 7",
+    "score": 0.624,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 8",
+    "url": "https://example.com/8",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 8",
+    "score": 0.876,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 9",
+    "url": "https://example.com/9",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 9",
+    "score": 0.704,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  },
+  {
+    "title": "[DEMO] 부동산 정책 관련 기사 10",
+    "url": "https://example.com/10",
+    "source": "DemoSource",
+    "publishedAt": "2025-08-23T03:21:09.822953",
+    "summary": "부동산 정책 데모 요약 내용 10",
+    "score": 0.582,
+    "tags": [
+      "청년",
+      "지원금",
+      "창업"
+    ]
+  }
+]
