@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------
+   공용 유틸
+------------------------------------ */
 .center-col { @apply max-w-5xl mx-auto; }
 .card { @apply bg-white border rounded-2xl shadow-soft; }
 .btn { @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-medium; }
@@ -13,15 +16,6 @@
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* 보라/네이비 우주감 그라데이션 히어로 (부동산플래닛 느낌) */
-.hero-gradient{
-  /* 바깥 배경과 톤을 맞추려면 아래 linear-gradient를 연한 회색(#f3f4f6) 계열로 바꿀 수 있습니다. */
-  background:
-    radial-gradient(800px 500px at 20% -10%, rgba(124,58,237,0.35), transparent 60%),
-    radial-gradient(700px 400px at 110% 10%, rgba(59,130,246,0.28), transparent 60%),
-    linear-gradient(180deg, #1a1030 0%, #21103a 55%, #1b0e33 100%);
-}
-
 /* === full-bleed section utility === */
 .full-bleed {
   width: 100vw;
@@ -31,3 +25,48 @@
   margin-left: -50vw;
   margin-right: -50vw;
 }
+
+/* ------------------------------------
+   로고/타이포 전용 유틸
+   (미래지향 + 주황 단색)
+------------------------------------ */
+
+/* 로고 / 영문 파트 */
+.font-exo2 {
+  font-family: "Exo 2", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* 로고 / 한글 파트 */
+.font-line-seed {
+  font-family: "LINE Seed Sans KR", "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* 주황(단색) — 그라데이션 제거 */
+:root { --brand-orange: #ff7a18; }
+.brand-strong { color: var(--brand-orange); }
+
+/* 더 두꺼워 보이게(볼드감 증폭) */
+.logo-strong {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 0 rgba(0,0,0,.06);
+}
+
+/* ------------------------------------
+   (옵션) 기존 보라/네이비 히어로 그라데이션 남겨둠
+------------------------------------ */
+.hero-gradient{
+  background:
+    radial-gradient(800px 500px at 20% -10%, rgba(124,58,237,0.35), transparent 60%),
+    radial-gradient(700px 400px at 110% 10%, rgba(59,130,246,0.28), transparent 60%),
+    linear-gradient(180deg, #1a1030 0%, #21103a 55%, #1b0e33 100%);
+}
+
+/* ------------------------------------
+   🔵 로고 남색(#1D4ED8) 전용 유틸
+------------------------------------ */
+:root { --brand-navy: #1D4ED8; } /* 요청 컬러 */
+.brand-navy { color: var(--brand-navy); }
+
+/* AiChat에서만 푸터 숨김 */
+body.chat-compact footer { display: none; }

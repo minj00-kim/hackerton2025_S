@@ -1,50 +1,124 @@
-import HeroSearch from '../components/HeroSearch'
-import CategoryGrid from '../components/CategoryGrid'
-import Card from '../components/Card'
+// src/views/Home.tsx
 import { Link } from 'react-router-dom'
 
-export default function Home(){
+export default function Home() {
   return (
-    <div className="space-y-10">
-      {/* ⬇⬇ 보라색 히어로 영역: 페이지 폭에서 독립적으로 좌우 꽉 채우기 */}
-  <section
-    className="
-      full-bleed
-      bg-[#ffdf65]
-      py-16 sm:py-24
-    "
-  >
-        {/* 내부 내용은 다시 컨테이너로 중앙 정렬 */}
-        <div className="center-col px-4 sm:px-6 lg:px-8">
-          <HeroSearch />
+    <div className="landing theme-cyber relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen min-h-screen overflow-hidden">
+      {/* CYBER 배경: 3D 네온 그리드 */}
+      <div className="bg-cyber" aria-hidden />
+
+      {/* 본문 */}
+      <section className="z-10 relative min-h-screen flex flex-col items-center justify-center text-center px-6">
+        <h1 className="title">AI여긴어때</h1>
+        <p className="tagline mt-3">
+          데이터를 <b>빠르게 해석</b>하고 <b>행동 가능한 인사이트</b>로 바꿉니다
+        </p>
+
+        <div className="actions mt-10">
+          {/* 글씨 흰색으로 고정됨 */}
+          <Link to="/ai" className="cta primary" aria-label="AI 메이트로 이동">
+            <span className="cta-label">AI 메이트</span>
+            <span className="cta-desc">대화형 컨시어지 · 질문/리서치/요약</span>
+          </Link>
+
+          <Link to="/wizard" className="cta ghost" aria-label="AI 추천으로 이동">
+            <span className="cta-label">AI 추천</span>
+            <span className="cta-desc">조건 입력 → 맞춤 매물/상권 추천</span>
+          </Link>
         </div>
       </section>
 
-      {/* ⬇⬇ 메인 콘텐츠(컨테이너 폭 유지) */}
-      <section className="center-col px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* 카테고리 그리드 복귀 */}
-        <CategoryGrid />
+      <style>{`
+        :root{
+          --txt: #eaf3ff;
+          --titleFrom:#ff5bf1; 
+          --titleTo:#79e4ff; 
+          --titleGlow: rgba(255,91,241,.25);
 
-        {/* (아래는 예시 섹션 유지) */}
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Card>
-            <div className="font-semibold mb-2">유지보수 가이드</div>
-            <ul className="text-sm text-gray-700 list-disc pl-5 space-y-1">
-              <li><code>frontend/src/services/api.ts</code> — 프론트 API 정의</li>
-              <li><code>server/services/*.js</code> — 외부 API 연동 로직</li>
-              <li><code>server/server.js</code> — Express 라우팅/시작</li>
-            </ul>
-          </Card>
-          <Card>
-            <div className="font-semibold mb-2">빠른 이동</div>
-            <div className="flex gap-2 text-sm">
-              <Link to="/listings" className="btn-outline">공실 매물</Link>
-              <Link to="/wizard" className="btn-outline">AI 추천</Link>
-              <Link to="/map" className="btn-outline">지도</Link>
-            </div>
-          </Card>
-        </div>
-      </section>
+          /* 버튼(테마 고정: CYBER) */
+          --btnPrimaryBg: linear-gradient(180deg, rgba(255,91,241,.25), rgba(121,228,255,.18));
+          --btnPrimaryBorder: rgba(255,91,241,.5);
+          --btnPrimaryText: #ffffff;           /* ★ 메이트 버튼 글씨 흰색으로 고정 */
+          --btnPrimaryShadow: rgba(255,91,241,.25);
+
+          --btnGhostBg: rgba(16,20,28,.6);
+          --btnGhostBorder: rgba(121,228,255,.35);
+          --btnGhostText: #dff7ff;
+          --btnGhostShadow: rgba(121,228,255,.18);
+        }
+
+        .landing{ position:relative; background:#070a16; }
+
+        /* 타이틀/카피 */
+        .title{
+          margin:0; user-select:none; white-space:nowrap;
+          font-weight:900; letter-spacing:.05em;
+          font-size: clamp(44px, 10vw, 120px);
+          color:transparent;
+          background: linear-gradient(90deg,var(--titleFrom),var(--titleTo));
+          -webkit-background-clip:text; background-clip:text;
+          text-shadow: 0 12px 48px var(--titleGlow);
+        }
+        .tagline{
+          color: var(--txt); opacity:.94;
+          text-shadow: 0 1px 0 rgba(0,0,0,.25);
+          font-size: clamp(14px,2.2vw,18px);
+        }
+
+        /* CTA 공통 */
+        .actions{ display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+        .cta{
+          display:flex; flex-direction:column; align-items:flex-start;
+          min-width:240px; padding:14px 18px; border-radius:16px;
+          text-align:left; backdrop-filter: blur(10px);
+          border:1px solid var(--btnBorder);
+          background: var(--btnBg);
+          color: var(--btnText);
+          box-shadow: 0 12px 28px var(--btnShadow);
+          transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+          position:relative; overflow:hidden;
+        }
+        .cta::after{
+          content:''; position:absolute; inset:0;
+          background: radial-gradient(140px 60px at -10% 50%, rgba(255,255,255,.30), transparent 60%);
+          transform: translateX(-120%); transition: transform .6s ease;
+        }
+        .cta:hover{ transform: translateY(-2px); filter: brightness(1.04); }
+        .cta:hover::after{ transform: translateX(120%); }
+        .cta-label{ font-weight:900; letter-spacing:.02em; font-size:18px; line-height:1.1 }
+        .cta-desc{ margin-top:4px; font-size:12.5px; opacity:.92 }
+
+        .primary{
+          --btnBg: var(--btnPrimaryBg);
+          --btnBorder: var(--btnPrimaryBorder);
+          --btnText: var(--btnPrimaryText);
+          --btnShadow: var(--btnPrimaryShadow);
+        }
+        .ghost{
+          --btnBg: var(--btnGhostBg);
+          --btnBorder: var(--btnGhostBorder);
+          --btnText: var(--btnGhostText);
+          --btnShadow: var(--btnGhostShadow);
+        }
+
+        /* CYBER 배경(3D 네온 그리드) */
+        .bg-cyber{
+          position:absolute; left:-10vw; right:-10vw; bottom:-5vh; height: 140vh;
+          background:
+            linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.7) 100%),
+            repeating-linear-gradient(to right, rgba(121,228,255,.18) 0 1px, transparent 1px 80px),
+            repeating-linear-gradient(to top,   rgba(121,228,255,.18) 0 1px, transparent 1px 80px),
+            linear-gradient(180deg,#070a16,#04060c);
+          transform: perspective(800px) rotateX(65deg) translateY(18vh);
+          border-top:1px solid rgba(121,228,255,.45);
+          mask-image: linear-gradient(to top, transparent 0%, black 22%);
+          animation: gridScroll 30s linear infinite;
+        }
+        @keyframes gridScroll { 
+          0%{background-position:0 0,0 0,0 0} 
+          100%{background-position:0 0,0 600px,0 600px} 
+        }
+      `}</style>
     </div>
   )
 }

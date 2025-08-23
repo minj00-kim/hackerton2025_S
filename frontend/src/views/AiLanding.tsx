@@ -1,5 +1,6 @@
+// src/views/AiLanding.tsx
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 const suggestions = [
   '이 근처 맛집 대신찾아드립니다.',
@@ -17,16 +18,18 @@ export default function AiLanding(){
 
   return (
     <section className="py-12 md:py-16">
-      {/* 가운데 정렬 + 데스크톱 50% 폭. 바깥 배경과 동일한 회색톤 */}
       <div
         className="
           mx-auto w-[94vw] md:w-[70vw] xl:w-[50vw]
           rounded-[28px]
-          bg-slate-50     /* 바깥(body)의 bg와 동일하게 */
+          bg-slate-50
           px-6 md:px-10 py-14 md:py-20
-          shadow-none     /* 그림자/테두리 제거 */
+          shadow-none
         "
       >
+
+        
+
         {/* 아이콘 */}
         <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-[#78b0fe] grid place-content-center mb-8 mx-auto">
           <svg width="52" height="52" viewBox="0 0 24 24" className="-rotate-45 fill-white">
@@ -39,6 +42,26 @@ export default function AiLanding(){
           가나다님,<br className="hidden md:block" />
           <span className="inline-block mt-1">어떤 장소를 찾으시나요?</span>
         </h1>
+
+        
+        <div className="mt-4 flex justify-center gap-3">
+        <span
+         className="inline-flex items-center h-10 px-4 rounded-full text-sm font-semibold
+               bg-slate-200 text-slate-700"
+         aria-current="page"
+        >
+         AI 메이트
+         </span>
+
+        <Link
+         to="/wizard"
+         className="inline-flex items-center h-10 px-4 rounded-full text-sm font-semibold
+               border border-blue-200 text-blue-600 hover:bg-blue-50 transition"
+         aria-label="AI 추천으로 이동"
+       >
+        AI 추천
+        </Link>
+        </div>
 
         {/* 추천 칩 */}
         <div className="mt-8 flex flex-wrap justify-center gap-3">

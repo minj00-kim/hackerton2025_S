@@ -1,199 +1,356 @@
-// 큰 카카오 지도에 매물을 그리는 화면
-// - Kakao SDK는 index.html에서 env 키가 있으면 로드됩니다.
-// - /api/listings 에서 매물 읽어와 lat/lng가 있는 것만 마커로 표기
-// - 마커 클릭 → 인포윈도우(썸네일/제목/가격) + 상세페이지로 이동 링크
-// - 상단에 간단한 필터(키워드/지역/테마) 제공
-
+// src/views/MapView.tsx
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getListings } from '../services/api'
-import Card from '../components/Card'
-import { Link } from 'react-router-dom'
-import { loadKakaoMaps } from '../lib/kakao'
+import { getRegionCounts, getNearbyBizCounts, getListingsByRegion } from '../services/api'
+import MapRightPanel, { type Cluster } from '../components/MapRightPanel'
 
-declare global { interface Window { kakao:any } }
+const HEADER_H = 56
+const kakao = (window as any).kakao
 
-type Listing = {
-  id:string; title:string; address:string; region:string; type:string;
-  area:number; deposit:number; rent:number; images:string[]; theme?:string[];
-  lat?:number; lng?:number;
-}
+export default function MapView() {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<any>(null)
+  const overlaysRef = useRef<any[]>([])
+  const searchMarkerRef = useRef<any>(null)
 
-export default function MapView(){
-  const [all, setAll] = useState<Listing[]>([])
-  const [q, setQ] = useState('')
-  const [region, setRegion] = useState('')
+  const [zoomLevel, setZoomLevel] = useState(7)
+  const [onlyWithCoords, setOnlyWithCoords] = useState(true)
+
+  // ✅ 한글 조합도 잘 입력되도록 controlled input + composition 처리
+  const [keyword, setKeyword] = useState('')
+  const composingRef = useRef(false)
+  const keywordRef = useRef<HTMLInputElement | null>(null)
+
   const [theme, setTheme] = useState('')
-  const [onlyGeo, setOnlyGeo] = useState(true)
 
-  // 카카오 맵 객체/클러스터러/마커 보관
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapObj = useRef<any>(null)
-  const clusterer = useRef<any>(null)
-  const markersRef = useRef<any[]>([])
-  const infoRef = useRef<any>(null)
+  // 단일 패널 + 3단계 스텝
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [panelStep, setPanelStep] = useState<'sig' | 'emd' | 'category'>('sig')
 
-  // 필터 적용
-  const rows = useMemo(()=>{
-    const k = q.trim().toLowerCase()
-    return all.filter(l=>{
-      if(onlyGeo && !(typeof l.lat==='number' && typeof l.lng==='number')) return false
-      if(region && l.region !== region) return false
-      if(theme && !(l.theme||[]).includes(theme)) return false
-      if(k){
-        const hay = [l.title,l.address,l.region,l.type,(l.theme||[]).join(',')].join(' ').toLowerCase()
-        if(!hay.includes(k)) return false
-      }
-      return true
-    })
-  }, [all,q,region,theme,onlyGeo])
+  // 목록/선택 상태
+  const [sigList, setSigList] = useState<Cluster[]>([])
+  const [selectedSig, setSelectedSig] = useState<Cluster | null>(null)
 
+  const [emdList, setEmdList] = useState<Cluster[]>([])
+  const [selectedEmd, setSelectedEmd] = useState<Cluster | null>(null)
+
+  const [bizCounts, setBizCounts] = useState<Record<string, number> | null>(null)
+  const [regionListings, setRegionListings] = useState<any[]>([])
+
+  const clusterScale = (cnt: number) => (cnt > 999 ? 1.25 : cnt > 199 ? 1.15 : cnt > 49 ? 1.05 : 1)
+  const currentLevel = useMemo<'sig' | 'emd'>(() => (zoomLevel <= 6 ? 'emd' : 'sig'), [zoomLevel])
+
+  // Kakao map
   useEffect(() => {
-  const run = async () => {
-    await loadKakaoMaps();           // ← 이게 실행되어야 script가 head에 붙음
-    // ... 지도 생성 코드 ...
-  }
-  run().catch(e => console.error(e))
-}, [])
+    if (!wrapRef.current || !kakao?.maps) return
+    const center = new kakao.maps.LatLng(36.78, 126.45)
+    const map = new kakao.maps.Map(wrapRef.current, { center, level: 7 })
+    mapRef.current = map
 
-  // 최초 데이터 로드
-  useEffect(()=>{ (async()=>{
-    const list = await getListings()
-    setAll(list)
-  })() }, [])
+    kakao.maps.event.addListener(map, 'zoom_changed', () => setZoomLevel(map.getLevel()))
+    kakao.maps.event.addListener(map, 'dragend', fetchClusters)
 
-  // 카카오맵 초기화 (서산 중심으로 시작)
-  useEffect(()=>{
-    const tryInit = () => {
-      if(!window.kakao || !window.kakao.maps) return false
-      window.kakao.maps.load(()=>{
-        const center = new window.kakao.maps.LatLng(36.7818, 126.4528) // 서산시청 근처
-        const map = new window.kakao.maps.Map(mapRef.current, { center, level: 6 })
-        mapObj.current = map
-        // 클러스터러 (라이브러리 로드된 경우)
-        if(window.kakao.maps.MarkerClusterer){
-          clusterer.current = new window.kakao.maps.MarkerClusterer({ map, averageCenter: true, minLevel: 6 })
-        }
-        renderMarkers(rows)
-      })
-      return true
+    fetchClusters()
+    return () => {
+      overlaysRef.current.forEach((ov) => ov.setMap && ov.setMap(null))
+      overlaysRef.current = []
+      if (searchMarkerRef.current) {
+        searchMarkerRef.current.setMap(null)
+        searchMarkerRef.current = null
+      }
+      mapRef.current = null
     }
-    // SDK가 늦게 로드될 수 있어 폴링
-    const id = setInterval(()=>{ if(tryInit()) clearInterval(id) }, 300)
-    return ()=> clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 필터 변경 시 마커 다시 그림
-  useEffect(()=>{
-    if(!mapObj.current || !window.kakao?.maps) return
-    renderMarkers(rows)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows])
+  useEffect(() => { fetchClusters() }, [currentLevel, onlyWithCoords, theme]) // eslint-disable-line
 
-  const renderMarkers = (list:Listing[]) => {
-    const kakao = window.kakao
-    // 기존 마커/클러스터 제거
-    if(clusterer.current){ clusterer.current.clear() }
-    markersRef.current.forEach(m=>m.setMap(null))
-    markersRef.current = []
-    if(infoRef.current){ infoRef.current.close(); infoRef.current = null }
+  // 키워드 변경 시 서버 필터는 반영하되, IME 조합 중에는 딜레이
+  useEffect(() => {
+    if (composingRef.current) return
+    const t = setTimeout(fetchClusters, 350)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyword])
 
-    const markers:any[] = []
-    const bounds = new kakao.maps.LatLngBounds()
+  // 지도 클러스터 렌더
+  const renderClusters = (items: Cluster[]) => {
+    overlaysRef.current.forEach((ov) => ov.setMap && ov.setMap(null))
+    overlaysRef.current = []
+    const map = mapRef.current
+    if (!map) return
 
-    list.forEach(item=>{
-      if(typeof item.lat !== 'number' || typeof item.lng !== 'number') return
-      const pos = new kakao.maps.LatLng(item.lat, item.lng)
-      const marker = new kakao.maps.Marker({ position: pos })
-      markers.push(marker)
-      bounds.extend(pos)
+    items.forEach((c) => {
+      const scale = clusterScale(c.count)
+      const el = document.createElement('div')
+      el.style.transform = `scale(${scale})`
+      el.style.display = 'inline-flex'
+      el.style.alignItems = 'center'
+      el.style.gap = '6px'
+      el.style.padding = '10px 14px'
+      el.style.borderRadius = '9999px'
+      el.style.background = '#2F6BFF'
+      el.style.color = '#fff'
+      el.style.fontWeight = '700'
+      el.style.boxShadow = '0 6px 14px rgba(47,107,255,.25)'
+      el.style.cursor = 'pointer'
+      el.innerHTML = `
+        <span style="background:rgba(255,255,255,.2);padding:4px 8px;border-radius:9999px;">${c.count}</span>
+        <span>${c.name}</span>
+      `
 
-      kakao.maps.event.addListener(marker, 'click', ()=>{
-        // 인포윈도우 콘텐츠 (간단 카드)
-        const html = `
-          <div style="min-width:260px">
-            <div style="display:flex;gap:8px">
-              <img src="${item.images?.[0]||''}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #eee"/>
-              <div style="font-size:13px;line-height:1.35">
-                <div style="font-weight:700;margin-bottom:2px">${escapeHtml(item.title)}</div>
-                <div style="color:#666">${escapeHtml(item.region)} · ${escapeHtml(item.address||'')}</div>
-                <div style="margin-top:4px">보증금 ${fmt(item.deposit)} · 월세 ${fmt(item.rent)}</div>
-                <div style="margin-top:6px">
-                  <a href="/listings/${item.id}" style="color:#2563eb;text-decoration:underline" target="_blank">상세 보기</a>
-                </div>
-              </div>
-            </div>
-          </div>
-        `
-        if(!infoRef.current) infoRef.current = new kakao.maps.InfoWindow({ removable:true })
-        infoRef.current.setContent(html)
-        infoRef.current.open(mapObj.current, marker)
+      const clickHandler = async () => {
+        setPanelOpen(true)
+        if (c.level === 'sig') {
+          // 시·군·구 클릭 → 해당 시군구의 읍·면·동 목록
+          setSelectedSig(c)
+          setPanelStep('emd')
+          await loadEmdList(c)
+          map.panTo(new kakao.maps.LatLng(c.lat, c.lng))
+        } else {
+          // 읍·면·동 클릭 → 카테고리
+          setSelectedEmd(c)
+          setPanelStep('category')
+          await loadCategoryForRegion(c)
+          const curr = map.getLevel()
+          map.setLevel(Math.max(1, curr - 1), { animate: true })
+          map.panTo(new kakao.maps.LatLng(c.lat, c.lng))
+        }
+      }
+      el.addEventListener('click', clickHandler)
+
+      const ov = new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(c.lat, c.lng),
+        content: el,
+        yAnchor: 1.1,
+        zIndex: 10,
+        clickable: true,
       })
+      ov.setMap(map)
+      overlaysRef.current.push(ov)
+      kakao.maps.event.addListener(ov, 'click', clickHandler)
     })
-
-    // 지도에 올리기
-    if(clusterer.current){ clusterer.current.addMarkers(markers) }
-    else { markers.forEach(m=>m.setMap(mapObj.current)) }
-    markersRef.current = markers
-
-    // 영역 맞추기
-    if(!bounds.isEmpty()){ mapObj.current.setBounds(bounds) }
   }
 
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-sm">
-            <div className="text-gray-600 mb-1">키워드</div>
-            <input className="border rounded-xl px-3 py-2" placeholder="제목/주소/테마"
-              value={q} onChange={e=>setQ(e.target.value)} />
-          </label>
-          <label className="text-sm">
-            <div className="text-gray-600 mb-1">지역</div>
-            <input className="border rounded-xl px-3 py-2" placeholder="예: 부춘동"
-              value={region} onChange={e=>setRegion(e.target.value)} />
-          </label>
-          <label className="text-sm">
-            <div className="text-gray-600 mb-1">테마</div>
-            <input className="border rounded-xl px-3 py-2" placeholder="예: 역세권"
-              value={theme} onChange={e=>setTheme(e.target.value)} />
-          </label>
-          <label className="text-sm inline-flex items-center gap-2 ml-auto">
-            <input type="checkbox" checked={onlyGeo} onChange={e=>setOnlyGeo(e.target.checked)} />
-            좌표가 있는 매물만
-          </label>
-          <span className="text-xs text-gray-500">표시 {rows.length} / 총 {all.length}</span>
-        </div>
-      </Card>
+  // 지도 클러스터 데이터
+  const fetchClusters = async () => {
+    const map = mapRef.current
+    if (!map) return
+    const b = map.getBounds()
+    const center = map.getCenter()
+    const params = {
+      level: currentLevel,
+      sw: { lat: b.getSouthWest().getLat(), lng: b.getSouthWest().getLng() },
+      ne: { lat: b.getNorthEast().getLat(), lng: b.getNorthEast().getLng() },
+      center: { lat: center.getLat(), lng: center.getLng() },
+      onlyWithCoords, keyword, theme,
+    }
+    try {
+      const list = await getRegionCounts(params as any)
+      renderClusters(list || [])
+    } catch {
+      renderClusters([{ name: '서산시', code: 'TEST', lat: 36.781, lng: 126.45, count: 123, level: currentLevel }])
+    }
+  }
 
-      {/* 큰 지도 영역 */}
-      <div ref={mapRef} className="w-full h-[70vh] rounded-2xl border bg-white" />
+  // 시·군·구 목록 로드(패널용)
+  const loadSigList = async () => {
+    const map = mapRef.current
+    if (!map) return
+    const b = map.getBounds()
+    const center = map.getCenter()
+    try {
+      const list = await getRegionCounts({
+        level: 'sig',
+        sw: { lat: b.getSouthWest().getLat(), lng: b.getSouthWest().getLng() },
+        ne: { lat: b.getNorthEast().getLat(), lng: b.getNorthEast().getLng() },
+        center: { lat: center.getLat(), lng: center.getLng() },
+        onlyWithCoords, keyword, theme,
+      } as any)
+      setSigList(list || [])
+    } catch {
+      setSigList([])
+    }
+  }
 
-      {/* 간단한 리스트(지금 보고 있는 필터 결과) */}
-      <Card>
-        <div className="font-semibold mb-2">현재 표시 중인 매물</div>
-        <ul className="text-sm grid md:grid-cols-2 gap-2">
-          {rows.slice(0,20).map(l=>(
-            <li key={l.id} className="flex items-center gap-3">
-              <img src={l.images?.[0]||''} className="w-16 h-16 object-cover rounded-lg border" />
-              <div>
-                <div className="font-medium">{l.title}</div>
-                <div className="text-gray-500">{l.region} · {l.address}</div>
-                <div className="text-gray-700">보증금 {fmt(l.deposit)} / 월세 {fmt(l.rent)}</div>
-                <Link to={`/listings/${l.id}`} className="text-brand-700 underline text-xs">상세보기</Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-        {rows.length>20 && <div className="text-xs text-gray-500 mt-2">…외 {rows.length-20}건</div>}
-      </Card>
+  // 읍·면·동 목록 로드(상위코드 지정)
+  const loadEmdList = async (sig: Cluster) => {
+    try {
+      const list = await getRegionCounts({
+        level: 'emd',
+        parentCode: sig.code, // ★ 백엔드에 parentCode 지원
+      } as any)
+      setEmdList(list || [])
+    } catch {
+      setEmdList([])
+    }
+  }
+
+  // 카테고리/리스트 로드(읍·면·동 기준)
+  const loadCategoryForRegion = async (emd: Cluster) => {
+    try {
+      const [biz, list] = await Promise.all([
+        getNearbyBizCounts({ code: emd.code, radius: 800 }),
+        getListingsByRegion({ code: emd.code, level: emd.level, limit: 20 }),
+      ])
+      setBizCounts(biz || {})
+      setRegionListings(Array.isArray(list) ? list : [])
+    } catch {
+      setBizCounts(null)
+      setRegionListings([])
+    }
+  }
+
+  // ✅ 카카오 장소 검색 → 지도 이동 + 검색 마커 표시
+  const doPlaceSearch = () => {
+    const q = keyword.trim()
+    const map = mapRef.current
+    if (!q || !map || !kakao?.maps?.services) return
+
+    const places = new kakao.maps.services.Places()
+    places.keywordSearch(q, (results: any[], status: string) => {
+      if (status !== kakao.maps.services.Status.OK || !results?.length) return
+      const first = results[0]
+      const latlng = new kakao.maps.LatLng(Number(first.y), Number(first.x))
+
+      map.setLevel(4)
+      map.setCenter(latlng)
+
+      if (searchMarkerRef.current) searchMarkerRef.current.setMap(null)
+      searchMarkerRef.current = new kakao.maps.Marker({ position: latlng, map })
+    })
+  }
+
+  // 상단 필터바
+  const FilterBar = () => (
+    <div className="fixed left-1/2 -translate-x-1/2" style={{ top: HEADER_H + 8, zIndex: 30 }}>
+      {/* 폼으로 묶어 Enter 제출 지원 */}
+      <form
+        className="bg-white/90 backdrop-blur rounded-full shadow px-3 py-1.5 flex items-center gap-3"
+        onSubmit={(e) => { e.preventDefault(); doPlaceSearch() }}
+      >
+        <label className="inline-flex items-center gap-1 px-2">
+          <input
+            type="checkbox"
+            checked={onlyWithCoords}
+            onChange={(e) => setOnlyWithCoords(e.target.checked)}
+          />
+          <span className="text-sm text-gray-700">좌표가 있는 매물만</span>
+        </label>
+
+        <input
+          ref={keywordRef}
+          type="text"
+          placeholder="지역, 지하철, 건물명, 학교명 등 검색"
+          value={keyword}
+          className="text-sm bg-transparent px-2 outline-none border-l pl-3 border-gray-200"
+          style={{ minWidth: 220 }}
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          onChange={(e) => {
+            // ✅ 여러 글자 자연스럽게 입력
+            setKeyword(e.currentTarget.value)
+          }}
+          onCompositionStart={() => { composingRef.current = true }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false
+            setKeyword(e.currentTarget.value)
+          }}
+        />
+
+        <button
+          type="submit"
+          className="text-sm px-3 h-7 rounded-full bg-brand-600 text-white hover:bg-brand-700"
+          title="검색"
+        >
+          검색
+        </button>
+
+        <select
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          className="text-sm bg-transparent px-2 outline-none"
+        >
+          <option value="">테마 전체</option>
+          <option value="역세권">역세권</option>
+          <option value="먹자골목">먹자골목</option>
+          <option value="대학가">대학가</option>
+        </select>
+
+        {/* 지역 집계(시·군·구부터) */}
+        <button
+          type="button"
+          className="text-sm px-2 h-7 rounded-full bg-gray-100 hover:bg-gray-200"
+          onClick={async () => {
+            setPanelOpen(true)
+            setPanelStep('sig')
+            setSelectedSig(null)
+            setSelectedEmd(null)
+            await loadSigList()
+          }}
+        >
+          지역 전체
+        </button>
+      </form>
     </div>
   )
-}
 
-function fmt(n?:number){ return typeof n==='number' ? `${n}만원` : '-' }
-function escapeHtml(s?:string){
-  if(!s) return ''
-  return s.replace(/[&<>"]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' } as any)[c])
+  return (
+    <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
+      <FilterBar />
+      <div
+        ref={wrapRef}
+        className="w-screen"
+        style={{ height: `calc(100vh - ${HEADER_H}px)`, zIndex: 0 }}
+      />
+
+      <MapRightPanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        step={panelStep}
+        // SIG
+        sigRegions={sigList}
+        onSelectSig={async (sig) => {
+          setSelectedSig(sig)
+          setPanelStep('emd')
+          await loadEmdList(sig)
+          try {
+            const map = mapRef.current
+            map.panTo(new kakao.maps.LatLng(sig.lat, sig.lng))
+          } catch {}
+        }}
+        // EMD
+        selectedSig={selectedSig}
+        emdRegions={emdList}
+        onBackToSig={() => {
+          setPanelStep('sig')
+          setSelectedSig(null)
+          setSelectedEmd(null)
+          loadSigList()
+        }}
+        onSelectEmd={async (emd) => {
+          setSelectedEmd(emd)
+          setPanelStep('category')
+          await loadCategoryForRegion(emd)
+          try {
+            const map = mapRef.current
+            const curr = map.getLevel()
+            map.setLevel(Math.max(1, curr - 1), { animate: true })
+            map.panTo(new kakao.maps.LatLng(emd.lat, emd.lng))
+          } catch {}
+        }}
+        // CATEGORY
+        selectedEmd={selectedEmd ? { name: selectedEmd.name, code: selectedEmd.code } : null}
+        bizCounts={bizCounts}
+        listings={regionListings}
+        onBackToEmd={() => {
+          if (selectedSig) {
+            setPanelStep('emd')
+          } else {
+            setPanelStep('sig')
+          }
+        }}
+      />
+    </div>
+  )
 }
