@@ -35,3 +35,41 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+dist/
+build/                      # 프론트엔드 빌드 산출물
+.vite/
+.vite-cache/
+.eslintcache
+.cache/
+.temp/
+coverage/
+
+# Framework outputs
+.next/
+.nuxt/
+.svelte-kit/
+.angular/
+out/
+
+# Logs / temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+*.pid
+*.seed
+*.tgz
+
+# Env / local configs
+.env
+.env.*.local
+
+# OS junk
+.DS_Store
+Thumbs.db
