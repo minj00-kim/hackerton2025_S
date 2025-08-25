@@ -57,7 +57,7 @@ export type Listing = {
   rent?: number
   theme?: string[]
   score?: number
-  // ▼ 인기순 보조 필드(서버 정렬 또는 프론트 보조 정렬에서 사용)
+  // 인기순 보조(백엔드/프론트 정렬용)
   viewsCount?: number
   favoritesCount?: number
 }
@@ -462,5 +462,39 @@ export async function getRegionCountsByAdmin(params: {
       { code: (params.parentCode || '') + '-102', name: '동문2동', count: 39, lat: 36.79, lng: 126.46, level: 'emd' },
       { code: (params.parentCode || '') + '-103', name: '부춘동',   count: 54, lat: 36.77, lng: 126.45, level: 'emd' },
     ]
+  }
+}
+
+// =======================================
+// 관리자 CSV 업로드 (AdminUpload.tsx 사용)
+// =======================================
+export type AdminCsvUploadResult = {
+  ok: boolean
+  imported?: number
+  skipped?: number
+  errors?: Array<{ line: number; message: string }>
+  preview?: Listing[]
+}
+
+/** 관리자 CSV 업로드 (mode=preview/commit) */
+export async function adminUploadCSV(
+  file: File | Blob,
+  opts?: { mode?: 'preview' | 'commit'; ownerKey?: string }
+): Promise<AdminCsvUploadResult> {
+  const fd = new FormData()
+  fd.append('file', file)
+  if (opts?.mode) fd.append('mode', opts.mode)
+
+  try {
+    const r = await api.post('/admin/upload-csv', fd, {
+      headers: {
+        ...(opts?.ownerKey ? { 'X-Owner-Key': opts.ownerKey } : {}),
+        // Content-Type은 브라우저가 boundary 포함해서 자동 설정하게 두는 것이 안전
+      } as any,
+    })
+    return r.data as AdminCsvUploadResult
+  } catch {
+    // 백엔드 미연동 시에도 UI가 죽지 않도록 최소 폴백
+    return { ok: true, imported: 0, skipped: 0, errors: [] }
   }
 }

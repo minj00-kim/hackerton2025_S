@@ -1,3 +1,4 @@
+// src/shared/MainLayout.tsx
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
 const nav = ({ isActive }: { isActive: boolean }) =>
@@ -11,33 +12,33 @@ const nav = ({ isActive }: { isActive: boolean }) =>
 
 export default function MainLayout() {
   const location = useLocation()
-  // 채팅/더보기 화면에서는 푸터를 숨김
-  const hideFooter =
-    location.pathname.startsWith('/ai/chat') ||
-    location.pathname.startsWith('/more')
 
-  // 홈에서는 헤더를 숨기도록 되어 있으면 기존 로직 유지
+  // ▷ 마이페이지 또는 AI 채팅 화면에서는 푸터 숨김
+  const isAccount = location.pathname.startsWith('/account')
+  const isAiChat  = location.pathname.startsWith('/ai/chat')
+  const hideFooter = isAccount || isAiChat
+
+  // 홈/지도 상단 여백 미세 보정
   const isHome = location.pathname === '/'
+  const isMap  = location.pathname.startsWith('/map')
+  const tightTopClass = isHome || isMap ? '-mt-px' : ''
+
+  // ▷ 채팅 화면에서는 하단 패딩 제거(흰 박스 방지)
+  const bottomPadClass = isAiChat ? 'pb-0' : 'pb-8'
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* 상단바 */}
-      <header
-        className={
-          'sticky top-0 z-20 bg-white/90 backdrop-blur border-b ' +
-          (isHome ? 'hidden' : '')
-        }
-      >
-        {/* ✅ 풀폭 컨테이너 + 좌측 그룹 / 우측 마이페이지 */}
+      {/* 상단바: 홈에서도 항상 표시 */}
+      <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b">
+        {/* 풀폭 컨테이너 + 좌측 그룹 / 우측 마이페이지 */}
         <div className="w-full max-w-none px-3 sm:px-4 md:px-6 py-3 flex items-center">
           <div className="flex items-center gap-4">
-            {/* 로고 (그라데이션 텍스트) */}
+            {/* 로고 */}
             <Link
               to="/"
               aria-label="AI여긴어때 홈"
               className="group flex items-end gap-1.5 select-none whitespace-nowrap"
             >
-            
               <span
                 className={[
                   'ml-1 font-line-seed logo-strong leading-none',
@@ -55,14 +56,15 @@ export default function MainLayout() {
             <nav className="flex items-center gap-1 no-scrollbar overflow-x-auto">
               <NavLink to="/ai" className={nav}>AI 메이트</NavLink>
               <NavLink to="/map" className={nav}>지도</NavLink>
-              <NavLink to="/listings" className={nav}>공실 매물</NavLink>
+              {/* /listings 정확 매칭만 활성화 (listings/new 클릭 시 공실 매물 비활성) */}
+              <NavLink to="/listings" end className={nav}>공실 매물</NavLink>
               <NavLink to="/support" className={nav}>창업 지원</NavLink>
               <NavLink to="/listings/new" className={nav}>매물 등록</NavLink>
               <NavLink to="/more" className={nav}>더보기</NavLink>
             </nav>
           </div>
 
-          {/* 우측 끝: 마이페이지 */}
+          {/* 우측: 마이페이지 */}
           <div className="ml-auto">
             <Link to="/account" className="text-sm text-gray-700">마이페이지</Link>
           </div>
@@ -70,11 +72,14 @@ export default function MainLayout() {
       </header>
 
       {/* 페이지 콘텐츠 */}
-      <main className="pt-0 pb-8">
-        <Outlet />
+      <main className={`pt-0 ${bottomPadClass} ${tightTopClass}`}>
+        {/* 첫 컴포넌트가 margin-top을 가지고 있어도 헤더와 틈이 생기지 않도록 */}
+        <div className="first:mt-0">
+          <Outlet />
+        </div>
       </main>
 
-      {/* 채팅/더보기에서는 푸터 숨김 */}
+      {/* 마이페이지/AI 채팅 외에는 푸터 노출 */}
       {!hideFooter && (
         <footer className="border-t py-8 text-center text-sm text-gray-500 bg-white">
           © 2025 AI여긴어때
